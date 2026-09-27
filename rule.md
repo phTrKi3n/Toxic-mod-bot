@@ -138,3 +138,26 @@ Quy tắc log 2 tầng:
 - Cần bổ sung khi có thời gian: slide thuyết trình, số liệu thật sau khi
   hiện thực (F1-score trên tập validation trộn Anh-Việt), tên/MSSV thành
   viên thứ 3 và phân công vai trò cụ thể.
+
+## 9. Nguyên tắc làm việc khi code (áp dụng cả 3 role)
+
+Áp dụng cho mọi agent (AI hoặc người) khi viết hoặc sửa code trong repo này,
+không riêng vai trò nào.
+
+- Suy nghĩ trước khi code: nếu yêu cầu chưa rõ, nêu rõ giả định đang dùng
+  hoặc hỏi lại người dùng, không tự chọn một cách hiểu rồi làm luôn. Có nhiều
+  cách làm khả thi thì trình bày ngắn gọn đánh đổi trước khi chọn, không im
+  lặng chọn một phương án.
+- Ưu tiên đơn giản: chỉ viết đúng phần cần cho yêu cầu đang có, không thêm
+  tính năng, không thêm lớp trừu tượng, không thêm cấu hình linh hoạt cho
+  trường hợp chưa ai yêu cầu. Đoạn nào rút gọn được mà vẫn đúng thì rút gọn.
+- Sửa đúng phạm vi: khi sửa file có sẵn, chỉ đổi đúng phần liên quan tới yêu
+  cầu, không tiện tay sửa định dạng, comment, hay đoạn code khác. Giữ nguyên
+  style code hiện có trong file dù thấy cách khác hợp lý hơn. Thấy code chết
+  không liên quan thì báo lại cho người dùng, không tự xoá.
+- Nêu tiêu chí hoàn thành trước khi làm việc nhiều bước: với việc lớn, agent
+  liệt kê ngắn từng bước kèm cách kiểm tra bước đó đã đúng (ví dụ viết test
+  trước rồi coi test pass là xong), thay vì chỉ nhận việc chung chung.
+
+Khi không chắc điều nào ở trên có mâu thuẫn với phạm vi đã chốt ở mục 1-2 hay
+không, dừng lại hỏi người dùng, không tự quyết.
