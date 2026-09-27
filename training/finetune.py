@@ -4,7 +4,12 @@ chạy trên Google Colab theo Chương I mục III.3. Chỉ fine-tune phần đ
 loại, không train model từ đầu.
 """
 
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer, TrainingArguments
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    Trainer,
+    TrainingArguments,
+)
 
 MODEL_NAME = "xlm-roberta-base"
 
