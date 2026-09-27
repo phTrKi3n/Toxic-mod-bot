@@ -27,7 +27,9 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "app_user"
     __table_args__ = (
-        CheckConstraint("role IN ('member','mod','labeler','admin')", name="ck_user_role"),
+        CheckConstraint(
+            "role IN ('member','mod','labeler','admin')", name="ck_user_role"
+        ),
     )
 
     user_id: Mapped[int] = mapped_column(primary_key=True)
@@ -52,7 +54,9 @@ class Message(Base):
     __tablename__ = "message"
 
     message_id: Mapped[int] = mapped_column(primary_key=True)
-    server_id: Mapped[int] = mapped_column(ForeignKey("server.server_id"), nullable=False)
+    server_id: Mapped[int] = mapped_column(
+        ForeignKey("server.server_id"), nullable=False
+    )
     user_id: Mapped[int] = mapped_column(ForeignKey("app_user.user_id"), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     language: Mapped[str | None] = mapped_column(String(10), nullable=True)
@@ -72,10 +76,14 @@ class ModelVersion(Base):
 
 class Classification(Base):
     __tablename__ = "classification"
-    __table_args__ = (CheckConstraint("score >= 0 AND score <= 1", name="ck_score_range"),)
+    __table_args__ = (
+        CheckConstraint("score >= 0 AND score <= 1", name="ck_score_range"),
+    )
 
     classification_id: Mapped[int] = mapped_column(primary_key=True)
-    message_id: Mapped[int] = mapped_column(ForeignKey("message.message_id"), nullable=False)
+    message_id: Mapped[int] = mapped_column(
+        ForeignKey("message.message_id"), nullable=False
+    )
     model_version_id: Mapped[int] = mapped_column(
         ForeignKey("model_version.model_version_id"), nullable=False
     )
@@ -92,26 +100,36 @@ class ModerationAction(Base):
     )
 
     action_id: Mapped[int] = mapped_column(primary_key=True)
-    message_id: Mapped[int] = mapped_column(ForeignKey("message.message_id"), nullable=False)
+    message_id: Mapped[int] = mapped_column(
+        ForeignKey("message.message_id"), nullable=False
+    )
     action_type: Mapped[str] = mapped_column(String(20), nullable=False)
     # decided_by = NULL nghĩa là bot tự quyết định (không có mod can thiệp)
-    decided_by: Mapped[int | None] = mapped_column(ForeignKey("app_user.user_id"), nullable=True)
+    decided_by: Mapped[int | None] = mapped_column(
+        ForeignKey("app_user.user_id"), nullable=True
+    )
     decided_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class Appeal(Base):
     __tablename__ = "appeal"
     __table_args__ = (
-        CheckConstraint("status IN ('pending','approved','rejected')", name="ck_appeal_status"),
+        CheckConstraint(
+            "status IN ('pending','approved','rejected')", name="ck_appeal_status"
+        ),
         UniqueConstraint("message_id", name="uq_appeal_message"),
     )
 
     appeal_id: Mapped[int] = mapped_column(primary_key=True)
-    message_id: Mapped[int] = mapped_column(ForeignKey("message.message_id"), nullable=False)
+    message_id: Mapped[int] = mapped_column(
+        ForeignKey("message.message_id"), nullable=False
+    )
     user_id: Mapped[int] = mapped_column(ForeignKey("app_user.user_id"), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending")
-    resolved_by: Mapped[int | None] = mapped_column(ForeignKey("app_user.user_id"), nullable=True)
+    resolved_by: Mapped[int | None] = mapped_column(
+        ForeignKey("app_user.user_id"), nullable=True
+    )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
@@ -123,13 +141,18 @@ class HardCase(Base):
             name="ck_hardcase_label",
         ),
         CheckConstraint(
-            "status IN ('pending','labeled','used_in_training')", name="ck_hardcase_status"
+            "status IN ('pending','labeled','used_in_training')",
+            name="ck_hardcase_status",
         ),
     )
 
     hardcase_id: Mapped[int] = mapped_column(primary_key=True)
-    message_id: Mapped[int] = mapped_column(ForeignKey("message.message_id"), nullable=False)
+    message_id: Mapped[int] = mapped_column(
+        ForeignKey("message.message_id"), nullable=False
+    )
     original_score: Mapped[float] = mapped_column(Float, nullable=False)
     corrected_label: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    labeled_by: Mapped[int | None] = mapped_column(ForeignKey("app_user.user_id"), nullable=True)
+    labeled_by: Mapped[int | None] = mapped_column(
+        ForeignKey("app_user.user_id"), nullable=True
+    )
     status: Mapped[str] = mapped_column(String(20), default="pending")
