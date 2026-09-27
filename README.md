@@ -1,103 +1,57 @@
-# README — Quy trình làm việc Dev-Sec-Ops & Git cho đồ án "Hệ thống phát hiện bình luận độc hại"
+# README (nhánh `sec`) — Vai trò SEC, đồ án "Hệ thống phát hiện bình luận độc hại"
 
-File này dành cho mọi agent (AI hoặc người) tham gia repo, đọc trước khi bắt đầu sửa bất kỳ file nào. Nó không thay thế `rule.md`, chỉ nối thêm phần quy trình Git mà `rule.md` chưa có.
+## ĐỌC TRƯỚC KHI LÀM BẤT KỲ VIỆC GÌ, KHÔNG NGOẠI LỆ
 
-## Đang ở nhánh `dev`, `sec`, `ops`, hay `test`? Đọc README riêng của nhánh đó trước
+> Đây là yêu cầu bắt buộc cho mọi AI agent nhận việc trên nhánh `sec`, kể cả khi nhiệm vụ được giao nghe rất nhỏ (ví dụ "thêm 1 dòng threat model", "sửa 1 câu"). Agent phải đọc đủ 5 file theo đúng thứ tự sau, trước khi tạo, sửa, hoặc xoá bất kỳ file nào:
+>
+> 1. `README.md` (ở nhánh `main`) — quy trình Git chung, cách tránh conflict.
+> 2. `rule.md` — phạm vi chung của đồ án, KHÔNG được tự ý mở rộng.
+> 3. `rule_sec.md` — phạm vi riêng của vai trò SEC.
+> 4. `log.md` — lịch sử quyết định chung, đọc ít nhất các entry từ lần gần nhất có nhãn `[SEC]` hoặc `[CHUNG]`.
+> 5. `log_sec.md` — toàn bộ lịch sử quyết định riêng của SEC.
+>
+> Nếu thiếu bất kỳ file nào trong 5 file trên, agent phải **dừng lại và báo cho người dùng biết ngay**, không tự đoán nội dung, không tự tạo file thay thế, không tự suy diễn phạm vi. Sau khi đọc xong, agent tự tóm tắt lại trong đầu (không cần viết ra) 3 điều: đề tài đang giới hạn ở 4 chức năng nào, SEC đang phụ trách đúng phần gì, quyết định gần nhất liên quan tới phần mình sắp sửa là gì (ví dụ threat model đã liệt kê những mối đe doạ nào rồi, tránh thêm trùng).
 
-> File này (`README.md` ở `main`) chỉ nói quy trình Git dùng chung. Nhánh `dev`, `sec`, `ops`, `test` đều có một `README.md` riêng đặt ngay tại gốc nhánh, mở đầu bằng khối "ĐỌC TRƯỚC KHI LÀM BẤT KỲ VIỆC GÌ". Agent nhận việc trên nhánh nào phải mở đúng `README.md` của nhánh đó trước, đọc hết khối bắt buộc, rồi mới được sửa file. Không dùng bản ở `main` để suy đoán thay cho bản riêng của nhánh.
+## 1. SEC phụ trách gì
 
-## Chưa dựng 5 nhánh này trên GitHub? Đọc `AGENT_SETUP_BRANCHES.md` trước khi làm gì khác
+- Threat model cho bot kiểm duyệt Discord/Telegram: giả mạo, spam tấn công model, injection vào input, và các mối đe doạ tương tự (ví dụ khả năng kết nối C2 nếu máy chủ bị xâm nhập, nếu đã được người dùng xác nhận đưa vào phạm vi).
+- RBAC/phân quyền giữa người dùng, kiểm duyệt viên, admin.
+- An toàn dữ liệu người dùng khi thu thập/lưu bình luận; rủi ro khi bot tự động xoá/cảnh báo tin nhắn (sai dương tính/sai âm tính).
+- Nội dung bảo mật ở Chương III-IV của báo cáo.
 
-> Nếu repo mới chỉ có khung xương chung (`toxic-mod-bot/`) mà chưa có đủ 5 nhánh `main`/`test`/`dev`/`sec`/`ops` trên GitHub, việc đầu tiên cần làm là chạy đúng theo `AGENT_SETUP_BRANCHES.md`, không tự bịa lệnh git khác dù nhìn có vẻ tương đương. File đó viết riêng cho AI agent thực thi, có kết quả mong đợi sau từng bước để tự kiểm tra.
+Chi tiết đầy đủ nằm ở `rule_sec.md`, không lặp lại ở đây; file này chỉ tóm tắt để agent định hướng nhanh.
 
-## 1. Bối cảnh dự án (đọc trong 30 giây)
+## 2. Việc SEC không được tự quyết
 
-- Đề tài: bot kiểm duyệt bình luận độc hại song ngữ Việt-Anh, chạy trên Discord/Telegram.
-- Phạm vi, nguyên tắc kỹ thuật, văn phong: xem `rule.md` (bắt buộc đọc trước khi sửa nội dung báo cáo).
-- Dự án chia 3 vai trò làm việc song song: **DEV**, **SEC**, **OPS**. Chi tiết phạm vi từng vai trò nằm ở `rule_dev.md`, `rule_sec.md`, `rule_ops.md`.
-- Mọi quyết định quan trọng được ghi log theo mô hình 2 tầng (`log.md` chung + `log_dev.md`/`log_sec.md`/`log_ops.md` riêng). Agent nào sửa nội dung phải tự ghi log tương ứng, xem `rule.md` mục 7. README này không lặp lại quy tắc ghi log, chỉ nói cách Git hoá quy trình đó.
+Thêm cơ chế bảo mật làm đổi luồng Activity/Use case đã chốt ở Chương III. Gặp trường hợp này, agent dừng lại, báo người dùng, không tự quyết rồi merge. Threat model chỉ được **thêm mục mô tả và biện pháp giảm thiểu**, không được tự ý vẽ lại sơ đồ Activity/Use case đã có.
 
-## 2. File nào ai sở hữu (đọc trước khi mở file để sửa)
+## 3. Ghi log ngay khi có quyết định
 
-| File / khu vực | Ai sửa | Ghi chú |
-|---|---|---|
-| `rule_dev.md`, `log_dev.md` | DEV | Không role khác sửa trực tiếp |
-| `rule_sec.md`, `log_sec.md` | SEC | Không role khác sửa trực tiếp |
-| `rule_ops.md`, `log_ops.md` | OPS | Không role khác sửa trực tiếp |
-| `rule.md`, `log.md` | Cả 3, nhưng chỉ khi đụng phạm vi chung | Đây là điểm dễ conflict nhất, xem mục 6 |
-| `BaoCao_DoAn_6Chuong_DevSecOps.docx` | Một role tại một thời điểm | File nhị phân, Git không merge được, xem mục 7 |
-| Sơ đồ (`docs/diagrams/` hoặc file nguồn PlantUML/Visual Paradigm nếu có) | Người đang phụ trách chương liên quan | Đổi actor/use case/entity/kiến trúc phải qua thống nhất chung trước (theo `rule.md` mục 7) |
+Mọi quyết định trong phạm vi SEC ghi ngay vào `log_sec.md`, đúng khuôn 5 trường (Ngày, Quyết định, Lý do, Ảnh hưởng) như `log.md`, entry mới nhất nằm trên cùng. Quyết định nào đụng phạm vi chung thì đồng thời thêm 1 dòng tóm tắt vào `log.md`, nhãn `[SEC] ...` ở đầu cột Quyết định. Không giữ quyết định trong đầu chờ gộp lại cuối phiên, ghi ngay để không mất nếu phiên làm việc kết thúc giữa chừng.
 
-Quy tắc chung: mỗi role chỉ tự ý sửa file của mình. Muốn sửa file của role khác hoặc file chung, phải hỏi trước hoặc mở PR để role đó/2 role còn lại duyệt.
+Lưu ý riêng cho SEC: mỗi mối đe doạ thêm vào bảng Threat Model phải kèm biện pháp giảm thiểu dựa trên cơ chế có thật (Discord AutoMod, rate limit, ORM/parameterized query, biến môi trường, audit log...), không bịa kỹ thuật, đúng nguyên tắc `rule.md` mục 2.
 
-## 3. Chiến lược nhánh Git (2 tầng: role -> test -> main)
+## 4. Quy tắc Git riêng cho nhánh này
 
-```
-main   <- bản ổn định cuối cùng, chỉ nhận merge từ test
-  └── test   <- nhánh tích hợp, SỐNG LÂU DÀI suốt dự án, không xoá giữa chừng
-        ├── dev   <- tạo từ main, DEV làm việc ở đây
-        ├── sec   <- tạo từ main, SEC làm việc ở đây
-        └── ops   <- tạo từ main, OPS làm việc ở đây
-```
+- `sec` được tạo từ `main` (tạo 1 lần lúc đầu dự án, dùng lại lâu dài, không tạo lại mỗi đợt việc).
+- Trước khi bắt đầu: `git checkout sec` rồi `git pull --rebase origin main`.
+- Mọi thay đổi, dù nhỏ, commit ngay, không gộp nhiều việc rồi mới commit 1 lần (áp dụng cho toàn repo, xem `README.md` mục 4).
+- Việc nhỏ: commit thẳng lên `sec`. Việc lớn hoặc còn thử nghiệm: tách `sec/ten-viec-ngan` từ `sec`, xong thì merge lại vào `sec` trước.
+- Commit message bắt đầu bằng `[SEC] `.
+- Đưa việc đã xong vào **`test`** (KHÔNG merge thẳng vào `main`): mở PR hoặc merge từ `sec` vào `test`. Nếu đụng phạm vi chung (actor, use case, entity, model, kiến trúc tổng, hoặc sửa `rule.md`), báo cho DEV/OPS biết trước khi merge. Nếu chỉ sửa trong phạm vi riêng SEC (ví dụ thêm 1 dòng threat model không đổi luồng), tự merge vào `test` được.
+- `test` -> `main` do 1 người đại diện nhóm phụ trách, SEC không tự ý merge `test` vào `main`.
+- File `.docx` báo cáo là nhị phân, không merge được: trước khi mở sửa, báo cho DEV/OPS biết, sửa xong merge vào `test` trong ngày, không giữ nhánh mở nhiều ngày. Chi tiết đầy đủ ở `README.md` (`main`) mục 7.
+- Không paste lại nguyên văn `rule.md`/`log.md` khi chỉ sửa 1 đoạn nhỏ, giữ diff gọn để dễ review.
+- Sau khi `main` được cập nhật (do merge `test` vào `main`), chạy lại `git pull --rebase origin main` trên `sec` để đồng bộ.
 
-Cả 5 nhánh (`main`, `test`, `dev`, `sec`, `ops`) xuất phát từ cùng một khung xương ban đầu (cấu trúc thư mục trong `STRUCTURE.md`), để cấu trúc file giống hệt nhau và merge đỡ bị lệch/conflict do khác cấu trúc.
+## 5. Checklist trước khi commit hoặc mở PR
 
-**Luồng đi của một thay đổi:**
+1. Đã đọc đủ 5 file ở mục "ĐỌC TRƯỚC KHI LÀM" chưa.
+2. Đã `git pull --rebase origin main` gần nhất chưa.
+3. Đã ghi log vào `log_sec.md` (và `log.md` nếu đụng phạm vi chung) chưa.
+4. Mối đe doạ mới thêm có biện pháp giảm thiểu dựa trên cơ chế có thật không, có làm đổi luồng Activity/Use case đã chốt không.
+5. Có đang sửa file `.docx` không, nếu có đã báo trước cho DEV/OPS chưa.
 
-1. Role tạo nhánh `dev`/`sec`/`ops` từ `main` (chỉ tạo 1 lần lúc bắt đầu dự án, sau đó dùng lại lâu dài, không tạo lại mỗi đợt việc).
-2. Role làm việc trên nhánh của mình. Việc nhỏ commit thẳng; việc lớn hoặc còn thử nghiệm tách nhánh con `<role>/ten-viec-ngan` từ nhánh role, xong thì merge ngược lại nhánh role trước.
-3. Xong một phần việc, role mở PR (hoặc merge thẳng nếu team cho phép) từ nhánh role vào **`test`**, không merge thẳng vào `main`.
-4. `test` là nơi kiểm tra 3 phần DEV/SEC/OPS ghép lại có chạy được với nhau không (chạy CI, chạy thử bot, review chéo nếu cần).
-5. Khi `test` ổn định (CI xanh, không còn lỗi tích hợp rõ ràng), **1 người đại diện nhóm** (ví dụ trưởng nhóm) duyệt và merge `test` vào `main`. Không cần cả 3 role cùng duyệt bước này.
-6. Sau khi `main` được cập nhật, cả 3 nhánh role và `test` nên `git pull --rebase origin main` để đồng bộ lại, tránh lệch xa dần theo thời gian.
+## 6. Khi không chắc
 
-`test` là nhánh sống lâu dài như `develop` trong git-flow, dùng xuyên suốt cả dự án, không tạo nhánh `test` mới theo từng đợt rồi xoá đi.
-
-## 4. Nguyên tắc commit: mọi thay đổi đều phải commit ngay
-
-Áp dụng cho toàn bộ repo, mọi nhánh (`main`, `test`, `dev`, `sec`, `ops`): làm xong một thay đổi, dù nhỏ, commit ngay, không gộp nhiều thay đổi khác nhau rồi mới commit một lần. Lý do: agent (AI hoặc người) khác có thể cần pull bất cứ lúc nào, và giữ lịch sử commit nhỏ, rõ ràng giúp resolve conflict dễ hơn nhiều so với một commit khổng lồ gộp nhiều việc không liên quan.
-
-## 5. Quy ước tên nhánh và commit
-
-- Nhánh dài hạn: `main`, `test`, `dev`, `sec`, `ops`.
-- Nhánh việc nhỏ: `<role>/<mo-ta-ngan-khong-dau>`, ví dụ `sec/threat-model-c2`, `ops/cicd-pipeline`, tạo từ nhánh role tương ứng, merge ngược lại nhánh role đó, không merge thẳng vào `test` hay `main`.
-- Commit message bắt đầu bằng nhãn vai trò, theo đúng cách đã dùng trong `log.md`: `[DEV] ...`, `[SEC] ...`, `[OPS] ...`, hoặc `[CHUNG] ...` nếu đụng phạm vi chung. Commit trên `test` khi tích hợp có thể dùng nhãn `[TEST] ...`.
-- Mỗi commit nên khớp với đúng 1 dòng vừa thêm ở `log_<role>.md` hoặc `log.md`, để sau này đọc lại `git log` và log file khớp nhau, dễ tra cứu.
-
-## 6. Tránh conflict trên `rule.md` và `log.md` (điểm dễ va chạm nhất)
-
-`log.md` là file duy nhất cả 3 role đều có thể cần thêm dòng vào, nên đây là nơi hay bị conflict nhất khi merge nhiều nhánh role vào `test` gần nhau. Cách xử lý:
-
-- Luôn thêm entry mới **trên cùng** bảng "Active Log" (đúng luật đã có trong `log.md`), không chèn giữa hay sửa entry cũ của người khác.
-- Trước khi thêm dòng vào `log.md`, chạy `git pull --rebase origin main` (hoặc `origin test` nếu đang làm việc gần sát thời điểm merge) trước, để dòng mới của mình luôn nối tiếp đúng dòng mới nhất hiện có.
-- Nếu vẫn bị conflict khi merge vào `test` (2 nhánh role cùng thêm dòng đầu bảng): đây là conflict vô hại, xử lý bằng cách giữ **cả hai dòng**, xếp theo đúng thứ tự ngày/giờ, không xoá dòng của role kia.
-- Tuyệt đối không dùng lệnh sửa toàn bộ file (`git checkout --theirs` hoặc `--ours` tràn lan) cho `rule.md`/`log.md`, vì dễ xoá mất thay đổi của role khác. Luôn mở file lên đọc bằng mắt khi resolve conflict ở 2 file này.
-- `rule.md` chỉ sửa từng mục nhỏ liên quan (đúng mục 5 của chính `rule.md`: "không viết lại toàn bộ tài liệu mỗi lần chỉ sửa một phần nhỏ"), không paste lại nguyên file mỗi lần commit, để diff trong PR dễ review và ít conflict hơn.
-
-## 7. Xử lý file `.docx` (file nhị phân, Git không merge được)
-
-Word không phải văn bản thuần nên Git chỉ coi mỗi bản `.docx` là một khối nhị phân khác nhau hoàn toàn, hai người sửa cùng lúc là chắc chắn conflict và không tự động gộp được, phải chọn 1 trong 2 bản và làm lại tay phần còn thiếu.
-
-- Quy ước "một người sửa tại một thời điểm": trước khi mở `.docx` ra sửa, báo trong kênh chat chung của nhóm hoặc mở PR nháp (draft PR) để người khác biết file đang bị khoá.
-- Việc sửa file nên xong và merge vào `test` trong cùng ngày, không giữ nhánh mở sửa `.docx` nhiều ngày.
-- Nếu 2 bản `.docx` đã lỡ bị sửa song song và conflict thật sự xảy ra: không cố gộp tay trong Word, chọn giữ bản mới nhất đã review, rồi áp lại thủ công phần nội dung của bản kia còn thiếu.
-- Khuyến nghị dài hạn: nếu nhóm thấy việc merge `.docx` gây phiền thường xuyên, có thể chuyển sang giữ nội dung nguồn ở dạng text rồi build ra `.docx` như bước cuối, để Git diff/merge được trên phần text thay vì trên file nhị phân. Đây là gợi ý, không bắt buộc phải đổi ngay.
-
-## 8. Checklist trước khi mở PR vào `test`
-
-1. Đã `git pull --rebase origin main` gần nhất chưa (tránh nhánh bị lệch quá xa).
-2. Đã ghi log đúng file (`log_<role>.md`, và `log.md` nếu đụng phạm vi chung) chưa.
-3. Nếu có sửa `.docx`: đã thông báo cho 2 role còn lại, và không có ai khác đang sửa cùng lúc.
-4. Nếu đụng phạm vi chung (actor, use case, entity, model, kiến trúc, hoặc sửa `rule.md`): đã tag 1 role khác vào PR để cùng biết chưa.
-5. Không paste lại nguyên văn `rule.md`/`log.md` trong diff nếu chỉ sửa 1 đoạn nhỏ, kiểm tra diff trước khi commit.
-
-## 9. Checklist trước khi merge `test` vào `main`
-
-1. CI trên `test` đang xanh (test + lint + build đều qua).
-2. Không còn PR nào đang mở/nháp từ `dev`/`sec`/`ops` mà 3 role dự định gộp vào đợt này.
-3. 1 người đại diện nhóm xác nhận merge, không cần chờ đủ cả 3 role.
-4. Sau khi merge xong, báo cho cả nhóm để 3 nhánh role rebase lại từ `main`.
-
-## 10. Khi phát hiện README này thiếu hoặc sai
-
-Sửa trực tiếp README này qua PR như một file chung (`main`), không cần ghi vào `log.md`, vì đây là tài liệu quy trình Git, không phải quyết định về nội dung đồ án.
+Dừng lại và hỏi người dùng thay vì tự suy đoán rồi làm, đúng nguyên tắc "làm nhanh nhưng đúng phạm vi" của `rule.md` mục 4-5. Đặc biệt: nếu một mối đe doạ nghe có vẻ giống một tính năng tấn công thật (ví dụ dựng kênh điều khiển từ xa) thay vì mô tả rủi ro phòng thủ, dừng lại và hỏi rõ ý người dùng trước khi viết.
