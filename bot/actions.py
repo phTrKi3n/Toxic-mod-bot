@@ -5,8 +5,8 @@ pháp giới hạn tần suất là biện pháp giảm thiểu mối đe doạ 
 mục V, không được bỏ khi hiện thực thật.
 """
 
-import httpx
 import discord
+import httpx
 
 INFERENCE_TIMEOUT_SECONDS = 2.0
 
