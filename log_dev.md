@@ -9,6 +9,7 @@ thuộc phạm vi DEV (xem `rule_dev.md`); quyết định ảnh hưởng phạm
 
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|
+| 2026-09-28 | Hoàn thiện phần dữ liệu của _handle_appeal, _handle_queue, _handle_resolve, _handle_config; giữ nguyên TODO(SEC) kiểm tra role (RBAC) | Triển khai đầy đủ logic nghiệp vụ dữ liệu cho các lệnh của bot theo đúng UC03, UC04, UC05, UC06, UC09, UC10 | Còn thiếu RBAC check (TODO(SEC)), chưa an toàn để chạy thật cho tới khi SEC thêm phần đó |
 | 2026-09-28 | Lấy threshold_low/threshold_high theo server từ DB (fallback .env), lấy INFERENCE_SERVICE_URL từ .env, hoàn thiện _delete_and_warn và _flag_for_review | Loại bỏ hard-code ngưỡng và URL, kết nối hành vi xử lý vi phạm với DB (ModerationAction, HardCase) | Đảm bảo tính linh hoạt cấu hình theo từng server và đồng bộ dữ liệu moderation |
 | 2026-09-28 | Hoàn thiện ModelLoader (__init__, reload, predict) load model từ models/xlmr-finetuned và truy vấn model_version_id có is_current=True | Cung cấp inference logic cho API phân loại độc hại và hỗ trợ cơ chế reload model theo UC11/UC14 | Phục vụ trực tiếp endpoint /classify và /health trong inference_service |
 | 2026-09-28 | Hoàn thiện hàm finetune() với HuggingFace Trainer, đo F1 binary trên eval split (10%), ghi model_version mới vào DB với is_current=True | Huấn luyện mô hình XLM-R và tự động cập nhật phiên bản mô hình hiện hành vào CSDL | Đảm bảo inference service luôn truy xuất được model_version mới nhất từ DB |
