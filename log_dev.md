@@ -9,6 +9,7 @@ thuộc phạm vi DEV (xem `rule_dev.md`); quyết định ảnh hưởng phạm
 
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|
+| 2026-09-28 | Lấy threshold_low/threshold_high theo server từ DB (fallback .env), lấy INFERENCE_SERVICE_URL từ .env, hoàn thiện _delete_and_warn và _flag_for_review | Loại bỏ hard-code ngưỡng và URL, kết nối hành vi xử lý vi phạm với DB (ModerationAction, HardCase) | Đảm bảo tính linh hoạt cấu hình theo từng server và đồng bộ dữ liệu moderation |
 | 2026-09-28 | Hoàn thiện ModelLoader (__init__, reload, predict) load model từ models/xlmr-finetuned và truy vấn model_version_id có is_current=True | Cung cấp inference logic cho API phân loại độc hại và hỗ trợ cơ chế reload model theo UC11/UC14 | Phục vụ trực tiếp endpoint /classify và /health trong inference_service |
 | 2026-09-28 | Hoàn thiện hàm finetune() với HuggingFace Trainer, đo F1 binary trên eval split (10%), ghi model_version mới vào DB với is_current=True | Huấn luyện mô hình XLM-R và tự động cập nhật phiên bản mô hình hiện hành vào CSDL | Đảm bảo inference service luôn truy xuất được model_version mới nhất từ DB |
 | 2026-09-28 | load_jigsaw dùng luật OR trên 6 cột toxic-type để gộp nhãn nhị phân; load_vihsd map label_id != 0 về 1, chuẩn hóa tên cột text/label | Chuẩn hóa dữ liệu 2 nguồn Jigsaw và ViHSD về cùng khuôn (text, label) nhị phân | Đảm bảo pipeline merge_and_export hoạt động thông suốt, data/merged_train.csv đồng nhất |
