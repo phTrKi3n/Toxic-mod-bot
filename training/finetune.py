@@ -4,13 +4,6 @@ chạy trên Google Colab theo Chương I mục III.3. Chỉ fine-tune phần đ
 loại, không train model từ đầu.
 """
 
-from transformers import (
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-    Trainer,
-    TrainingArguments,
-)
-
 import os
 from datetime import datetime
 
@@ -21,7 +14,13 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 from sqlalchemy import create_engine, update
 from sqlalchemy.orm import Session
-from transformers import DataCollatorWithPadding
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    DataCollatorWithPadding,
+    Trainer,
+    TrainingArguments,
+)
 
 from db.models import ModelVersion
 
@@ -89,9 +88,7 @@ def finetune(train_csv: str, output_dir: str) -> None:
     if database_url:
         engine = create_engine(database_url)
         with Session(engine) as session:
-            session.execute(
-                update(ModelVersion).values(is_current=False)
-            )
+            session.execute(update(ModelVersion).values(is_current=False))
             version_tag = f"xlmr_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
             new_version = ModelVersion(
                 version_tag=version_tag,

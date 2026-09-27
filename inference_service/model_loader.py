@@ -5,7 +5,6 @@ hoặc khi được gọi reload, phục vụ cơ chế rollback ở Chương V 
 trong DB xong, không cần sửa code hay khởi động lại toàn bộ bot.
 """
 
-
 import os
 
 import torch
@@ -59,7 +58,9 @@ class ModelLoader:
         """Trả (score, model_version_id). Khung này chưa gọi model thật."""
         # TODO(DEV): tokenize, forward qua model, lấy xác suất lớp toxic
         if self._model is not None and self._tokenizer is not None:
-            inputs = self._tokenizer(text, return_tensors="pt", truncation=True, max_length=128)
+            inputs = self._tokenizer(
+                text, return_tensors="pt", truncation=True, max_length=128
+            )
             with torch.no_grad():
                 logits = self._model(**inputs).logits
                 probs = torch.softmax(logits, dim=-1)
@@ -67,5 +68,9 @@ class ModelLoader:
         else:
             score = 0.0
 
-        version_id = self.current_model_version_id if self.current_model_version_id is not None else 1
+        version_id = (
+            self.current_model_version_id
+            if self.current_model_version_id is not None
+            else 1
+        )
         return float(score), int(version_id)

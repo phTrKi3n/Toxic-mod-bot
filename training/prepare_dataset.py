@@ -11,7 +11,14 @@ import pandas as pd
 def load_jigsaw(path: str) -> pd.DataFrame:
     # TODO(DEV): đọc CSV Jigsaw, quy các cột toxic/severe_toxic/... về 1 nhãn toxic/not_toxic
     df = pd.read_csv(path)
-    label_cols = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
+    label_cols = [
+        "toxic",
+        "severe_toxic",
+        "obscene",
+        "threat",
+        "insult",
+        "identity_hate",
+    ]
     df["label"] = (df[label_cols].sum(axis=1) > 0).astype(int)
     df = df.rename(columns={"comment_text": "text"})[["text", "label"]]
     df = df.dropna(subset=["text"])

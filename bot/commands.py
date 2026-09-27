@@ -74,7 +74,9 @@ async def _handle_appeal(message: discord.Message) -> None:
             )
             session.add(appeal)
             session.commit()
-            await message.channel.send(f"Đã gửi khiếu nại cho tin nhắn #{target_message_id} thành công.")
+            await message.channel.send(
+                f"Đã gửi khiếu nại cho tin nhắn #{target_message_id} thành công."
+            )
     except Exception as e:
         await message.channel.send(f"Lỗi khi gửi khiếu nại: {e}")
 
@@ -93,12 +95,16 @@ async def _handle_queue(message: discord.Message) -> None:
             stmt = select(HardCase).where(HardCase.status == "pending")
             hard_cases = session.scalars(stmt).all()
             if not hard_cases:
-                await message.channel.send("Hàng đợi rỗng, không có trường hợp nghi vấn nào.")
+                await message.channel.send(
+                    "Hàng đợi rỗng, không có trường hợp nghi vấn nào."
+                )
                 return
 
             lines = ["**Danh sách hàng đợi HardCase (pending):**"]
             for hc in hard_cases:
-                lines.append(f"- ID: {hc.hardcase_id} | Message ID: {hc.message_id} | Score: {hc.original_score:.2f}")
+                lines.append(
+                    f"- ID: {hc.hardcase_id} | Message ID: {hc.message_id} | Score: {hc.original_score:.2f}"
+                )
             await message.channel.send("\n".join(lines))
     except Exception as e:
         await message.channel.send(f"Lỗi khi lấy hàng đợi: {e}")
@@ -109,7 +115,9 @@ async def _handle_resolve(message: discord.Message) -> None:
     # TODO(DEV): cập nhật ModerationAction/Appeal, ghi decided_by = người gọi lệnh
     parts = message.content.strip().split(maxsplit=2)
     if len(parts) < 3:
-        await message.channel.send("Cú pháp: /resolve <message_id> <delete|restore|approve|reject>")
+        await message.channel.send(
+            "Cú pháp: /resolve <message_id> <delete|restore|approve|reject>"
+        )
         return
 
     try:
@@ -143,7 +151,9 @@ async def _handle_resolve(message: discord.Message) -> None:
                     )
                 )
                 session.commit()
-                await message.channel.send(f"Đã cập nhật Appeal cho tin nhắn #{target_message_id} thành {new_status}.")
+                await message.channel.send(
+                    f"Đã cập nhật Appeal cho tin nhắn #{target_message_id} thành {new_status}."
+                )
             elif action in ["delete", "restore"]:
                 mod_action = ModerationAction(
                     message_id=target_message_id,
@@ -153,9 +163,13 @@ async def _handle_resolve(message: discord.Message) -> None:
                 )
                 session.add(mod_action)
                 session.commit()
-                await message.channel.send(f"Đã ghi nhận ModerationAction '{action}' cho tin nhắn #{target_message_id}.")
+                await message.channel.send(
+                    f"Đã ghi nhận ModerationAction '{action}' cho tin nhắn #{target_message_id}."
+                )
             else:
-                await message.channel.send("Hành động không hợp lệ. Chọn một trong: delete, restore, approve, reject.")
+                await message.channel.send(
+                    "Hành động không hợp lệ. Chọn một trong: delete, restore, approve, reject."
+                )
     except Exception as e:
         await message.channel.send(f"Lỗi khi xử lý resolve: {e}")
 
@@ -165,7 +179,9 @@ async def _handle_config(message: discord.Message) -> None:
     # TODO(DEV): cập nhật threshold_low/threshold_high trong bảng server
     parts = message.content.strip().split(maxsplit=2)
     if len(parts) < 3:
-        await message.channel.send("Cú pháp: /config <threshold_low|threshold_high> <giá trị>")
+        await message.channel.send(
+            "Cú pháp: /config <threshold_low|threshold_high> <giá trị>"
+        )
         return
 
     param_name = parts[1].lower()
@@ -176,7 +192,9 @@ async def _handle_config(message: discord.Message) -> None:
         return
 
     if param_name not in ["threshold_low", "threshold_high"]:
-        await message.channel.send("Chỉ hỗ trợ cấu hình: threshold_low hoặc threshold_high.")
+        await message.channel.send(
+            "Chỉ hỗ trợ cấu hình: threshold_low hoặc threshold_high."
+        )
         return
 
     if not message.guild:
@@ -209,6 +227,8 @@ async def _handle_config(message: discord.Message) -> None:
                 srv.threshold_high = param_value
 
             session.commit()
-            await message.channel.send(f"Đã cập nhật {param_name} = {param_value:.2f} cho server.")
+            await message.channel.send(
+                f"Đã cập nhật {param_name} = {param_value:.2f} cho server."
+            )
     except Exception as e:
         await message.channel.send(f"Lỗi khi cập nhật cấu hình: {e}")
