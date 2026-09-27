@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Biến môi trường thật, không bao giờ commit
+.env
+
+# Model đã fine-tune (nặng, không hợp để đưa vào Git thường)
+*.bin
+*.pt
+*.safetensors
+training/checkpoints/
+
+# DB local dùng khi demo
+*.sqlite3
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output build/test
+.pytest_cache/
+htmlcov/
+.coverage
