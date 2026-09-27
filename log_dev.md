@@ -9,6 +9,7 @@ thuộc phạm vi DEV (xem `rule_dev.md`); quyết định ảnh hưởng phạm
 
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|
+| 2026-09-28 | load_jigsaw dùng luật OR trên 6 cột toxic-type để gộp nhãn nhị phân; load_vihsd map label_id != 0 về 1, chuẩn hóa tên cột text/label | Chuẩn hóa dữ liệu 2 nguồn Jigsaw và ViHSD về cùng khuôn (text, label) nhị phân | Đảm bảo pipeline merge_and_export hoạt động thông suốt, data/merged_train.csv đồng nhất |
 | 2026-09-26 | Trong file docx mới, gắn nhãn rõ Chương II (Xác định yêu cầu) và phần use case/ERD/SQL đầu Chương III là nội dung do DEV chủ trì, đúng phạm vi rule_dev.md; giữ nguyên actor/use case/entity, không đổi | Đồng bộ báo cáo với việc chia role đã quyết ở `log.md` 2026-09-25, không tạo nội dung kỹ thuật mới | Chỉ đổi cách trình bày/gắn nhãn, không đổi nội dung pipeline NLP hay schema DB đã chốt |
 
 ## Archive
