@@ -2,7 +2,6 @@ import logging
 import os
 import time
 from collections import deque
-
 import aiohttp
 
 logger = logging.getLogger("bot.monitoring")
@@ -13,9 +12,7 @@ WINDOW_SECONDS = 300  # 5 minutes
 
 
 class ErrorTracker:
-    def __init__(
-        self, threshold: int = ALERT_THRESHOLD, window_seconds: int = WINDOW_SECONDS
-    ):
+    def __init__(self, threshold: int = ALERT_THRESHOLD, window_seconds: int = WINDOW_SECONDS):
         self.threshold = threshold
         self.window_seconds = window_seconds
         self.error_timestamps = deque()
@@ -45,26 +42,20 @@ class ErrorTracker:
             f"- **Action Required**: Inspect inference_service logs and network connection."
         )
         logger.error(f"[OPS ALERT TRIGGERED] {message}")
-
-        # Fire async HTTP task without blocking main loop
+        
         if WEBHOOK_URL:
             import asyncio
-
             asyncio.create_task(send_ops_alert(message))
         else:
-            logger.warning(
-                "[OPS ALERT] WEBHOOK_URL not configured. Alert logged to stdout only."
-            )
+            logger.warning("[OPS ALERT] DISCORD_WEBHOOK_URL not configured.")
 
 
 error_tracker = ErrorTracker()
 
 
 async def send_ops_alert(error_detail: str):
-    """Sends webhook notification to Admin Discord Channel."""
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "")
     if not webhook_url:
-        logger.warning("DISCORD_WEBHOOK_URL is missing. Cannot send ops webhook alert.")
         return False
 
     payload = {
@@ -74,7 +65,7 @@ async def send_ops_alert(error_detail: str):
             {
                 "title": "🚨 Cảnh báo Vận hành Hạ tầng DevSecOps",
                 "description": error_detail,
-                "color": 15158332,  # Red
+                "color": 15158332,
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             }
         ],
@@ -83,14 +74,7 @@ async def send_ops_alert(error_detail: str):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(webhook_url, json=payload) as resp:
-                if resp.status in (200, 204):
-                    logger.info("Successfully dispatched Ops Discord Webhook Alert.")
-                    return True
-                else:
-                    logger.error(
-                        f"Failed to send Webhook Alert. HTTP Status: {resp.status}"
-                    )
-                    return False
+                return resp.status in (200, 204)
     except Exception as e:
         logger.error(f"Exception while sending Ops Webhook Alert: {e}")
         return False
