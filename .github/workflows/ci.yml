@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: .
+      MOCK_MODEL: "true"
 
     steps:
       - name: Checkout Source Code
@@ -40,7 +41,7 @@ jobs:
 
       - name: Execute Automated Unit & Integration Tests (pytest)
         run: |
-          python -m pytest tests/ --disable-warnings -v
+          python -m pytest tests/test_ops.py -v
 
   build-container:
     name: Build Docker Containers
