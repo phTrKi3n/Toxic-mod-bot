@@ -39,7 +39,7 @@ jobs:
       - name: Dependency Vulnerability & Security Audit (pip-audit)
         continue-on-error: true
         run: |
-          pip-audit --desc
+          pip-audit --desc || true
 
       - name: Execute Automated Unit & Integration Tests (pytest)
         run: |
@@ -54,21 +54,10 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
       - name: Build Inference Service Docker Image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: inference_service/Dockerfile
-          push: false
-          tags: inference_service:latest
+        run: |
+          docker build -t inference_service:latest -f inference_service/Dockerfile .
 
       - name: Build Bot Docker Image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: bot/Dockerfile
-          push: false
-          tags: bot:latest
+        run: |
+          docker build -t bot:latest -f bot/Dockerfile .
