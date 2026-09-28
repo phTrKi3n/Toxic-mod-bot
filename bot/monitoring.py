@@ -2,6 +2,7 @@ import logging
 import os
 import time
 from collections import deque
+
 import aiohttp
 
 logger = logging.getLogger("bot.monitoring")
@@ -12,7 +13,9 @@ WINDOW_SECONDS = 300  # 5 minutes
 
 
 class ErrorTracker:
-    def __init__(self, threshold: int = ALERT_THRESHOLD, window_seconds: int = WINDOW_SECONDS):
+    def __init__(
+        self, threshold: int = ALERT_THRESHOLD, window_seconds: int = WINDOW_SECONDS
+    ):
         self.threshold = threshold
         self.window_seconds = window_seconds
         self.error_timestamps = deque()
@@ -42,9 +45,10 @@ class ErrorTracker:
             f"- **Action Required**: Inspect inference_service logs and network connection."
         )
         logger.error(f"[OPS ALERT TRIGGERED] {message}")
-        
+
         if WEBHOOK_URL:
             import asyncio
+
             asyncio.create_task(send_ops_alert(message))
         else:
             logger.warning("[OPS ALERT] DISCORD_WEBHOOK_URL not configured.")

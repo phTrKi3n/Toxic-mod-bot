@@ -3,7 +3,9 @@ import os
 import random
 import time
 from typing import Optional, Tuple
+
 from sqlalchemy.orm import Session
+
 from db.models import ModelVersion
 
 logger = logging.getLogger("inference.model_loader")

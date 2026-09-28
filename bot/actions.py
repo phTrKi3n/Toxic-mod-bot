@@ -3,17 +3,22 @@ import datetime
 import logging
 import os
 import time
+
 import aiohttp
 
-from db.models import Classification, HardCase, ModerationAction
 from bot.monitoring import error_tracker
+from db.models import Classification, HardCase, ModerationAction
 
 logger = logging.getLogger("bot.actions")
 
-INFERENCE_URL = os.getenv("INFERENCE_SERVICE_URL", "http://inference_service:8000/classify")
+INFERENCE_URL = os.getenv(
+    "INFERENCE_SERVICE_URL", "http://inference_service:8000/classify"
+)
 
 
-async def classify_and_moderate(message, server_config, db_session, discord_client=None, session=None):
+async def classify_and_moderate(
+    message, server_config, db_session, discord_client=None, session=None
+):
     msg_id = getattr(message, "id", 123456789)
     msg_content = getattr(message, "content", "")
     author = getattr(message, "author", None)
@@ -35,14 +40,16 @@ async def classify_and_moderate(message, server_config, db_session, discord_clie
 
     try:
         payload = {"text": msg_content}
-        async with session.post(INFERENCE_URL, json=payload, timeout=aiohttp.ClientTimeout(total=2.0)) as resp:
+        async with session.post(
+            INFERENCE_URL, json=payload, timeout=aiohttp.ClientTimeout(total=2.0)
+        ) as resp:
             elapsed = time.time() - start_time
             if resp.status != 200:
                 err_msg = f"[HTTP_{resp.status}] message_id={msg_id}, duration={elapsed:.2f}s, action=bypass"
                 logger.error(f"[TIMEOUT_ERROR] {err_msg}")
                 error_tracker.record_error(err_msg)
                 return {"action": "bypass", "reason": f"HTTP status {resp.status}"}
-            
+
             data = await resp.json()
             score = float(data.get("score", 0.0))
             model_version_id = int(data.get("model_version_id", 1))
@@ -56,7 +63,9 @@ async def classify_and_moderate(message, server_config, db_session, discord_clie
 
     except Exception as e:
         elapsed = time.time() - start_time
-        err_msg = f"[INFERENCE_EXCEPTION] message_id={msg_id}, error={str(e)}, action=bypass"
+        err_msg = (
+            f"[INFERENCE_EXCEPTION] message_id={msg_id}, error={str(e)}, action=bypass"
+        )
         logger.error(f"[TIMEOUT_ERROR] {err_msg}")
         error_tracker.record_error(err_msg)
         return {"action": "bypass", "reason": str(e)}
@@ -70,7 +79,7 @@ async def classify_and_moderate(message, server_config, db_session, discord_clie
             message_id=msg_id,
             model_version_id=model_version_id,
             score=score,
-            created_at=datetime.datetime.utcnow()
+            created_at=datetime.datetime.utcnow(),
         )
         db_session.add(cls_record)
         db_session.flush()
@@ -99,7 +108,7 @@ async def classify_and_moderate(message, server_config, db_session, discord_clie
             message_id=msg_id,
             action_type="delete",
             decided_by=None,
-            decided_at=datetime.datetime.utcnow()
+            decided_at=datetime.datetime.utcnow(),
         )
         db_session.add(mod_action)
 
@@ -110,7 +119,7 @@ async def classify_and_moderate(message, server_config, db_session, discord_clie
             text=msg_content,
             score=score,
             status="pending",
-            created_at=datetime.datetime.utcnow()
+            created_at=datetime.datetime.utcnow(),
         )
         db_session.add(hard_case)
 
@@ -118,7 +127,7 @@ async def classify_and_moderate(message, server_config, db_session, discord_clie
             message_id=msg_id,
             action_type="flag",
             decided_by=None,
-            decided_at=datetime.datetime.utcnow()
+            decided_at=datetime.datetime.utcnow(),
         )
         db_session.add(mod_action)
 
@@ -128,7 +137,7 @@ async def classify_and_moderate(message, server_config, db_session, discord_clie
             message_id=msg_id,
             action_type="ignore",
             decided_by=None,
-            decided_at=datetime.datetime.utcnow()
+            decided_at=datetime.datetime.utcnow(),
         )
         db_session.add(mod_action)
 
@@ -142,5 +151,5 @@ async def classify_and_moderate(message, server_config, db_session, discord_clie
         "action": action_taken,
         "score": score,
         "model_version_id": model_version_id,
-        "message_id": msg_id
+        "message_id": msg_id,
     }
