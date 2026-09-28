@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: modbot_db
+    environment:
+      POSTGRES_USER: modbot_user
+      POSTGRES_PASSWORD: modbot_password
+      POSTGRES_DB: modbot_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - modbot_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U modbot_user -d modbot_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  inference_service:
+    build:
+      context: .
+      dockerfile: inference_service/Dockerfile
+    container_name: modbot_inference
+    environment:
+      DATABASE_URL: postgresql://modbot_user:modbot_password@db:5432/modbot_db
+      MOCK_MODEL: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - modbot_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  bot:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    container_name: modbot_bot
+    environment:
+      DATABASE_URL: postgresql://modbot_user:modbot_password@db:5432/modbot_db
+      INFERENCE_SERVICE_URL: http://inference_service:8000/classify
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-mock_token}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+    depends_on:
+      inference_service:
+        condition: service_healthy
+    networks:
+      - modbot_net
+
+networks:
+  modbot_net:
+    driver: bridge
+    name: modbot_net
+
+volumes:
+  postgres_data:

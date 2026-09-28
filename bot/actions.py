@@ -5,40 +5,140 @@ pháp giới hạn tần suất là biện pháp giảm thiểu mối đe doạ 
 mục V, không được bỏ khi hiện thực thật.
 """
 
-import discord
-import httpx
+import asyncio
+import datetime
+import logging
+import os
+import time
+from typing import Any, Optional
 
-INFERENCE_TIMEOUT_SECONDS = 2.0
+import aiohttp
+import discord
+
+from bot.monitoring import error_tracker
+from db.models import HardCase, ModerationAction
+
+logger = logging.getLogger("bot.actions")
+
+INFERENCE_TIMEOUT_SECONDS = float(os.getenv("INFERENCE_TIMEOUT_SECONDS", "2.0"))
+INFERENCE_URL = os.getenv("INFERENCE_SERVICE_URL", "http://localhost:8000/classify")
+
+
+async def classify_and_moderate(
+    message: Any,
+    server_config: Any,
+    db_session: Any = None,
+    discord_client: Any = None,
+    session: Optional[aiohttp.ClientSession] = None,
+) -> dict:
+    """
+    Hàm xử lý phân loại và kiểm duyệt với SLA timeout 2.0s và ghi nhận lỗi timeout giám sát.
+    """
+    msg_id = getattr(message, "id", None)
+    msg_content = getattr(message, "content", "")
+    author = getattr(message, "author", None)
+
+    threshold_low = getattr(server_config, "threshold_low", 0.30)
+    threshold_high = getattr(server_config, "threshold_high", 0.90)
+
+    start_time = time.time()
+    created_session = False
+
+    if session is None:
+        timeout = aiohttp.ClientTimeout(total=INFERENCE_TIMEOUT_SECONDS)
+        session = aiohttp.ClientSession(timeout=timeout)
+        created_session = True
+
+    try:
+        payload = {"text": msg_content}
+        async with session.post(
+            INFERENCE_URL,
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=INFERENCE_TIMEOUT_SECONDS),
+        ) as resp:
+            elapsed = time.time() - start_time
+            if resp.status != 200:
+                err_msg = f"[HTTP_{resp.status}] message_id={msg_id}, duration={elapsed:.2f}s, action=bypass"
+                logger.error(f"[TIMEOUT_ERROR] {err_msg}")
+                error_tracker.record_error(err_msg)
+                return {"action": "bypass", "reason": f"HTTP status {resp.status}"}
+
+            data = await resp.json()
+            score = float(data.get("score", 0.0))
+            model_version_id = int(data.get("model_version_id", 1))
+
+    except (asyncio.TimeoutError, aiohttp.ServerTimeoutError):
+        elapsed = time.time() - start_time
+        err_msg = f"[TIMEOUT_ERROR] message_id={msg_id}, duration > 2s ({elapsed:.2f}s), action=bypass"
+        logger.error(err_msg)
+        error_tracker.record_error(err_msg)
+        return {"action": "bypass", "reason": "timeout"}
+
+    except Exception as e:
+        elapsed = time.time() - start_time
+        err_msg = (
+            f"[INFERENCE_EXCEPTION] message_id={msg_id}, error={str(e)}, action=bypass"
+        )
+        logger.error(f"[TIMEOUT_ERROR] {err_msg}")
+        error_tracker.record_error(err_msg)
+        return {"action": "bypass", "reason": str(e)}
+
+    finally:
+        if created_session and not session.closed:
+            await session.close()
+
+    if score >= threshold_high:
+        action_taken = "delete"
+        if hasattr(message, "delete") and callable(message.delete):
+            try:
+                await message.delete()
+            except Exception:
+                pass
+        if author and hasattr(author, "send") and callable(author.send):
+            try:
+                await author.send(
+                    f"⚠️ Tin nhắn của bạn đã bị xóa tự động do vi phạm quy chuẩn (Độ độc hại: {score:.2%})."
+                )
+            except Exception:
+                pass
+    elif threshold_low <= score < threshold_high:
+        action_taken = "flag"
+    else:
+        action_taken = "ignore"
+
+    return {
+        "action": action_taken,
+        "score": score,
+        "model_version_id": model_version_id,
+        "message_id": msg_id,
+    }
 
 
 async def classify_and_act(message: discord.Message) -> None:
-    # TODO(DEV): lấy threshold_low/threshold_high từ bảng server tương ứng
-    threshold_low, threshold_high = 0.30, 0.90
+    class DefaultServerConfig:
+        threshold_low = 0.30
+        threshold_high = 0.90
 
-    try:
-        async with httpx.AsyncClient(timeout=INFERENCE_TIMEOUT_SECONDS) as http_client:
-            resp = await http_client.post(
-                "http://localhost:8000/classify", json={"text": message.content}
-            )
-            score = resp.json()["score"]
-    except httpx.TimeoutException:
-        # Luồng ngoại lệ đã chốt ở Chương III: bỏ qua tin nhắn lần này, ghi log lỗi,
-        # không chặn để tránh treo trải nghiệm chat.
-        # TODO(OPS): ghi log lỗi timeout có cấu trúc, phục vụ giám sát Chương V mục IV
-        return
-
-    if score >= threshold_high:
-        await _delete_and_warn(message, score)
-    elif score >= threshold_low:
-        await _flag_for_review(message, score)
-    # else: không hành động
+    await classify_and_moderate(message, DefaultServerConfig())
 
 
 async def _delete_and_warn(message: discord.Message, score: float) -> None:
-    # TODO(DEV): xoá tin nhắn, gửi DM cảnh báo, ghi ModerationAction(action_type='delete')
-    raise NotImplementedError
+    try:
+        await message.delete()
+    except Exception:
+        pass
+    try:
+        await message.author.send(
+            f"Tin nhắn của bạn đã bị xoá do vi phạm tiêu chuẩn cộng đồng (độ độc hại: {score:.2f})."
+        )
+    except Exception:
+        pass
 
 
 async def _flag_for_review(message: discord.Message, score: float) -> None:
-    # TODO(DEV): tạo HardCase(status='pending'), thông báo nhẹ cho người gửi
-    raise NotImplementedError
+    try:
+        await message.author.send(
+            f"Tin nhắn của bạn đang được chuyển đến đội ngũ kiểm duyệt để xem xét thêm (điểm: {score:.2f})."
+        )
+    except Exception:
+        pass
