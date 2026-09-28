@@ -41,7 +41,7 @@ jobs:
 
       - name: Execute Automated Unit & Integration Tests (pytest)
         run: |
-          python -m pytest tests/test_ops.py -v
+          python -m pytest tests/ --disable-warnings -v
 
   build-container:
     name: Build Docker Containers
