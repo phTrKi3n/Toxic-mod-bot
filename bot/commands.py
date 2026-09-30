@@ -7,6 +7,23 @@ gọi được các lệnh quản trị, kiểm tra role trong bảng app_user t
 import discord
 
 
+def has_role(message: discord.Message, allowed_roles: set[str]) -> bool:
+    """Check whether the command author has one of the allowed roles."""
+    user_roles = {
+        role.name.lower()
+        for role in getattr(message.author, "roles", [])
+    }
+
+    return bool(user_roles & allowed_roles)
+
+
+def is_mod_or_admin(message: discord.Message) -> bool:
+    return has_role(message, {"mod", "admin"})
+
+
+def is_admin(message: discord.Message) -> bool:
+    return has_role(message, {"admin"})
+
 async def handle_command(message: discord.Message) -> None:
     text = message.content.strip()
 
