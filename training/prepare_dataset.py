@@ -10,12 +10,30 @@ import pandas as pd
 
 def load_jigsaw(path: str) -> pd.DataFrame:
     # TODO(DEV): đọc CSV Jigsaw, quy các cột toxic/severe_toxic/... về 1 nhãn toxic/not_toxic
-    raise NotImplementedError
+    df = pd.read_csv(path)
+    label_cols = [
+        "toxic",
+        "severe_toxic",
+        "obscene",
+        "threat",
+        "insult",
+        "identity_hate",
+    ]
+    df["label"] = (df[label_cols].sum(axis=1) > 0).astype(int)
+    df = df.rename(columns={"comment_text": "text"})[["text", "label"]]
+    df = df.dropna(subset=["text"])
+    return df
 
 
 def load_vihsd(path: str) -> pd.DataFrame:
     # TODO(DEV): đọc ViHSD (Clean/Offensive/Hate), quy về toxic/not_toxic
-    raise NotImplementedError
+    df = pd.read_csv(path)
+    text_col = "free_text" if "free_text" in df.columns else "text"
+    label_col = "label_id" if "label_id" in df.columns else "label"
+    df["label"] = (df[label_col] != 0).astype(int)
+    df = df.rename(columns={text_col: "text"})[["text", "label"]]
+    df = df.dropna(subset=["text"])
+    return df
 
 
 def merge_and_export(jigsaw_path: str, vihsd_path: str, out_path: str) -> None:
