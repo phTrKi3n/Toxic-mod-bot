@@ -1,9 +1,11 @@
 import pytest
 
+
 @pytest.fixture(autouse=True)
 def discord_only_legacy_mode(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("RBAC_DISCORD_ONLY", "true")
+
 
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
