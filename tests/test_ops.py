@@ -10,7 +10,7 @@ from bot.actions import classify_and_moderate
 from db.models import Base, ModelVersion, Server
 from db.session import SessionLocal, engine, init_db
 from inference_service.app import app
-from inference_service.model_loader import model_manager
+from inference_service.model_loader import ModelManager, model_manager
 
 # Create Test Client for FastAPI
 client = TestClient(app)
@@ -146,4 +146,78 @@ def test_model_hot_rollback():
     health2 = client.get("/health").json()
     assert health2["version_tag"] == "v1.0.0-old-stable"
     assert health2["current_model_version_id"] == v1.model_version_id
+    db.close()
+
+
+def test_tc08_hot_reload_after_finetune_cycle():
+    """
+    TC08 (Chương V mục I.2): Sau chu kỳ fine-tune ghi thêm dòng mới vào model_version
+    với is_current=True, gọi /ops/reload cập nhật model_version_id trong /classify
+    mà không làm gián đoạn tiến trình bot.
+    """
+    db = SessionLocal()
+    db.query(ModelVersion).update({ModelVersion.is_current: False})
+    v_finetuned = ModelVersion(
+        version_tag="xlmr_20261022_finetuned",
+        trained_at=datetime.datetime.utcnow(),
+        training_set_size=20000,
+        f1_score=0.95,
+        is_current=True,
+    )
+    db.add(v_finetuned)
+    db.commit()
+    new_id = v_finetuned.model_version_id
+
+    reload_resp = client.post("/ops/reload")
+    assert reload_resp.status_code == 200
+    assert reload_resp.json()["current_model_version_id"] == new_id
+
+    cls_resp = client.post(
+        "/classify", json={"text": "Đồ ngu, cút khỏi server đi thứ rác rưởi"}
+    )
+    assert cls_resp.status_code == 200
+    cls_data = cls_resp.json()
+    assert cls_data["model_version_id"] == new_id
+    assert cls_data["score"] >= 0.90
+    db.close()
+
+
+def test_bilingual_validation_f1_score():
+    """
+    Đánh giá định lượng mô hình (Chương V mục I.1): Đo Precision, Recall, F1-score
+    trên tập validation song ngữ Việt-Anh (gồm cả từ lóng và chữ biến tấu).
+    """
+    from sklearn.metrics import f1_score, precision_score, recall_score
+
+    db = SessionLocal()
+    real_mgr = ModelManager(use_mock=False)
+    real_mgr.load_model_from_db(db)
+
+    validation_samples = [
+        ("Chào mọi người, hôm nay thời tiết đẹp quá!", 0),
+        ("Cảm ơn bạn đã chia sẻ tài liệu học tập rất bổ ích.", 0),
+        ("Ý kiến của bạn sai bét rồi, mình không đồng ý chút nào.", 0),
+        ("Hello everyone, welcome to our Discord community!", 0),
+        ("I completely disagree with your technical approach here.", 0),
+        ("Đồ ngu như bò, cút khỏi server đi thứ rác rưởi!", 1),
+        ("Mày bị điên à thằng khốn nạn vô học mất dạy", 1),
+        ("Đ.ồ n.g.u, cút đi thứ rác rưởi", 1),
+        ("Mày nói chuyện nghe ngứa đít vl", 1),
+        ("You are a fucking idiot, shut up and get lost!", 1),
+        ("Go kill yourself you stupid piece of trash, nobody likes you.", 1),
+        ("Bro nói chuyện toxic vl, đúng là stupid idiot", 1),
+    ]
+
+    y_true = [label for _, label in validation_samples]
+    y_pred = [
+        1 if real_mgr.predict(text) >= 0.50 else 0 for text, _ in validation_samples
+    ]
+
+    precision = precision_score(y_true, y_pred)
+    recall = recall_score(y_true, y_pred)
+    f1 = f1_score(y_true, y_pred)
+
+    assert precision >= 0.85
+    assert recall >= 0.85
+    assert f1 >= 0.85
     db.close()
