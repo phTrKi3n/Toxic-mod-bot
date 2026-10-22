@@ -7,7 +7,7 @@ import aiohttp
 
 logger = logging.getLogger("bot.monitoring")
 
-WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
+WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL") or os.getenv("OPS_ALERT_WEBHOOK_URL", "")
 ALERT_THRESHOLD = int(os.getenv("ALERT_THRESHOLD", "5"))
 WINDOW_SECONDS = 300  # 5 minutes
 
@@ -46,10 +46,19 @@ class ErrorTracker:
         )
         logger.error(f"[OPS ALERT TRIGGERED] {message}")
 
-        if WEBHOOK_URL:
+        webhook_url = (
+            os.getenv("DISCORD_WEBHOOK_URL")
+            or os.getenv("OPS_ALERT_WEBHOOK_URL")
+            or WEBHOOK_URL
+        )
+        if webhook_url:
             import asyncio
 
-            asyncio.create_task(send_ops_alert(message))
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(send_ops_alert(message))
+            except RuntimeError:
+                pass
         else:
             logger.warning("[OPS ALERT] DISCORD_WEBHOOK_URL not configured.")
 
@@ -58,7 +67,11 @@ error_tracker = ErrorTracker()
 
 
 async def send_ops_alert(error_detail: str):
-    webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "")
+    webhook_url = (
+        os.getenv("DISCORD_WEBHOOK_URL")
+        or os.getenv("OPS_ALERT_WEBHOOK_URL")
+        or WEBHOOK_URL
+    )
     if not webhook_url:
         return False
 
