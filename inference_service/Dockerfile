@@ -18,7 +18,8 @@ RUN groupadd -r appgroup && useradd -r -g appgroup -d ${APP_HOME} -s /sbin/nolog
 
 # Copy dependency files
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY db ${APP_HOME}/db

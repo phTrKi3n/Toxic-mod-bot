@@ -14,7 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -r botgroup && useradd -r -g botgroup -d ${APP_HOME} -s /sbin/nologin botuser
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY db ${APP_HOME}/db
 COPY bot ${APP_HOME}/bot

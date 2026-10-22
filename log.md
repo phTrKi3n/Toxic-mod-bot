@@ -20,6 +20,7 @@
 
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|
+| 2026-10-22 | [OPS] Đồng bộ từ `log_ops.md`: bổ sung kiểm thử TC08 (hot-reload sau fine-tune) và kiểm thử định lượng Precision/Recall/F1-score trên tập validation song ngữ Việt-Anh trong `tests/test_ops.py`; cập nhật CI/CD chạy toàn bộ `tests/` | Đảm bảo đầy đủ bộ ca kiểm thử TC01-TC08 và đánh giá F1-score song ngữ theo Chương V mục I.1-I.2 | Toàn bộ test của cả 3 vai trò (DEV, SEC, OPS) chạy tự động và đạt chuẩn định lượng |
 | 2026-10-22 | [SEC] Đồng bộ từ `log_sec.md`: hoàn thiện cơ chế giới hạn tần suất theo `user_id` (`check_user_rate_limit`) và giới hạn chiều dài input (`MAX_MESSAGE_CHARS`) trước khi gọi Inference Service | Thực thi biện pháp giảm thiểu mối đe doạ Spam/DoS trong bảng Threat Model Chương IV mục V | Giảm tải cho Inference Service khi bị flood tin nhắn mà không làm đổi luồng Activity/Use case Chương III |
 | 2026-10-22 | [DEV] Đồng bộ 6 entry từ `log_dev.md`: tích hợp mô hình Hugging Face XLM-RoBERTa song ngữ thật (`thong7d/vihsd-xlmr-base-hate-speech` + `EIStakovskii/xlm_roberta_base_multilingual_toxicity_classifier_plus`) kèm hàm tiền xử lý chống lách luật `preprocess_text()`, hoàn thiện kết nối CSDL, tích hợp đầy đủ RBAC scope/ownership của SEC vào lệnh bot và hoàn thiện bộ test TC01-TC07 | Khắc phục các điểm đứt gãy giữa DEV, SEC, OPS và đáp ứng yêu cầu phân loại độc hại song ngữ Việt-Anh thực tế | Không đổi ERD hay 4 chức năng chính; toàn bộ test suite (`tests/`) bao gồm cả test model Hugging Face thật đều chạy xanh |
 | 2026-09-27 | [CHUNG] Thêm mục 9 vào rule.md: 4 nguyên tắc làm việc khi code (suy nghĩ trước khi code, ưu tiên đơn giản, sửa đúng phạm vi, nêu tiêu chí hoàn thành), áp dụng cho cả 3 role | Người dùng muốn áp dụng nguyên tắc từ skill andrej-karpathy-skills để giảm lỗi thường gặp khi AI agent code (tự đoán, làm phức tạp hoá, sửa lan ra ngoài phạm vi) | Không đổi 4 chức năng chính hay phạm vi đề tài; 3 role không cần sửa file riêng, chỉ cần đọc mục 9 rule.md như các mục chung khác |
@@ -35,12 +36,7 @@
 | 2026-09-13 | Bỏ khung "song ngữ 1 model", đổi thành 2 nhánh riêng — đã bị thay thế bởi entry trên | Hiểu sai ý người dùng ở bước trước | Xem entry mới nhất |
 | 2026-09-13 | Viết lại hoàn chỉnh Chương I-II lần 1 (docx) theo hướng song ngữ — đã bị thay thế bởi entry trên | Bản đầu chưa đúng ý (v thiếu dùng model có sẵn, viết văn phong AI) | Xem entry mới nhất |
 | 2026-09-13 | Mở rộng phạm vi phân loại từ chỉ tiếng Việt sang **song ngữ Việt + Anh** | Đề bài yêu cầu rõ "phân loại tiếng Việt, tiếng Anh" | Cần thêm bước phát hiện ngôn ngữ (language detection) trước khi vào pipeline NLP; cập nhật Chương I mục 2-3 |
-| 2026-09-13 | Chốt phạm vi chức năng = 4 khối: Thu thập, Gắn nhãn, Kiểm duyệt, Khiếu nại (bỏ chi tiết hoá Active Learning Loop hoàn chỉnh) | Theo tiêu chí đề bài đưa ra, tránh lan man | Chương II chỉ cần mô tả 4 khối này ở mức đủ, phần mở rộng ghi là "hướng phát triển" |
-| 2026-09-13 | Trọng tâm thiết kế = Phân loại toxic/spam bằng NLP | Theo tiêu chí đề bài | Đầu tư kỹ nhất vào mô tả pipeline NLP (tiền xử lý → embedding → mô hình → ngưỡng phân loại) trong Chương I và II |
-| 2026-09-13 | Dùng Visual Paradigm để vẽ Use Case/ERD, Claude chỉ cung cấp đặc tả | VP là công cụ người dùng chỉ định, Claude không thao tác trực tiếp trên web đó | Chương III có mô tả actor/use case/entity dạng text để đưa vào VP |
-| 2026-09-13 | Tạo `rule.md` + `log.md` làm nền quản lý dự án | Yêu cầu người dùng, để tránh lan man và giữ tiến độ | Mọi quyết định lớn từ nay ghi vào log này, không lặp lại trong chat |
-| 2026-09-13 | Ưu tiên làm slide ý tưởng trước, hoãn hoàn thiện toàn văn Chương I-II đầy đủ — đã bị thay thế bởi entry mới nhất (nay làm đủ 6 chương luôn) | Deadline gấp: thuyết trình ý tưởng vào ngày mai | Xem entry mới nhất |
 
 ## Archive
 
-*(chưa có — sẽ chuyển entry cũ xuống đây khi Active Log vượt 20 dòng)*
+- **2026-09-13 (5 entry khởi tạo dự án)**: Thiết lập `rule.md` + `log.md`, chọn Visual Paradigm cho đặc tả Use Case/ERD, chốt trọng tâm thiết kế là pipeline NLP phân loại toxic/spam và 4 khối chức năng chính (Thu thập, Gắn nhãn, Kiểm duyệt, Khiếu nại).

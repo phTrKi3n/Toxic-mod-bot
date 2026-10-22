@@ -243,7 +243,19 @@ class ModelManager:
                 "annoying",
                 "weird",
             ]
-            clean_keywords = ["clean", "chào", "tốt", "cảm ơn", "hello", "thanks"]
+            clean_keywords = [
+                "clean",
+                "chào",
+                "tốt",
+                "cảm ơn",
+                "sai bét",
+                "không đồng ý",
+                "hello",
+                "thanks",
+                "thank you",
+                "makes no sense",
+                "disagree",
+            ]
             if any(k in text_lower for k in toxic_keywords):
                 return 0.95
             elif any(k in text_lower for k in suspicious_keywords):
