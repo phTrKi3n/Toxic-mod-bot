@@ -1,9 +1,12 @@
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from bot import rbac
+from bot.actions import check_user_rate_limit, classify_and_moderate, reset_rate_limits
 from db.models import Base, HardCase, Message, Server, User
 
 
@@ -64,3 +67,46 @@ def test_fail_closed_without_db(monkeypatch):
     monkeypatch.setenv("RBAC_DISCORD_ONLY", "true")
     assert rbac.allowed(msg("mod"), "queue")
     assert not rbac.allowed(msg("mod"), "config")
+
+
+@pytest.mark.asyncio
+async def test_per_user_rate_limit_mitigates_inference_dos():
+    """Threat Model #2 (SEC): Giới hạn tần suất gửi tin theo user_id để chống spam/DoS lên Inference Service."""
+    reset_rate_limits()
+    for i in range(5):
+        assert (
+            check_user_rate_limit(
+                "spam_user", now=100.0 + i, max_messages=5, window_seconds=10.0
+            )
+            is True
+        )
+    assert (
+        check_user_rate_limit(
+            "spam_user", now=104.5, max_messages=5, window_seconds=10.0
+        )
+        is False
+    )
+    # Sau khi cửa sổ 10s trôi qua, người dùng được phép gửi lại
+    assert (
+        check_user_rate_limit(
+            "spam_user", now=111.0, max_messages=5, window_seconds=10.0
+        )
+        is True
+    )
+
+    # Kiểm tra tích hợp trực tiếp trong classify_and_moderate(enforce_rate_limit=True)
+    reset_rate_limits()
+    cfg = SimpleNamespace(threshold_low=0.30, threshold_high=0.90)
+    for _ in range(5):
+        assert check_user_rate_limit("flood_uid") is True
+
+    flood_msg = SimpleNamespace(
+        id=9999,
+        content="spam message",
+        author=SimpleNamespace(id="flood_uid", name="flooder", send=AsyncMock()),
+        delete=AsyncMock(),
+    )
+    res = await classify_and_moderate(flood_msg, cfg, enforce_rate_limit=True)
+    assert res["action"] == "rate_limited"
+    assert res["reason"] == "rate_limit_exceeded"
+    reset_rate_limits()
