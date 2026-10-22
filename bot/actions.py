@@ -3,6 +3,7 @@ import datetime
 import logging
 import os
 import time
+from collections import defaultdict, deque
 
 import aiohttp
 import discord
@@ -24,10 +25,42 @@ from db.models import (
 logger = logging.getLogger("bot.actions")
 
 INFERENCE_TIMEOUT_SECONDS = float(os.getenv("INFERENCE_TIMEOUT_SECONDS", "2.0"))
+RATE_LIMIT_MAX_MESSAGES = int(os.getenv("RATE_LIMIT_MAX_MESSAGES", "5"))
+RATE_LIMIT_WINDOW_SECONDS = float(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "10.0"))
+MAX_MESSAGE_CHARS = int(os.getenv("MAX_MESSAGE_CHARS", "2000"))
 _raw_url = os.getenv(
     "INFERENCE_SERVICE_URL", "http://inference_service:8000/classify"
 ).rstrip("/")
 INFERENCE_URL = _raw_url if _raw_url.endswith("/classify") else f"{_raw_url}/classify"
+
+_user_rate_windows: dict[str, deque[float]] = defaultdict(deque)
+
+
+def check_user_rate_limit(
+    user_id: str | int | None,
+    *,
+    now: float | None = None,
+    max_messages: int | None = None,
+    window_seconds: float | None = None,
+) -> bool:
+    """Return True if the user is within the allowed message rate, False if rate-limited (DoS guard)."""
+    if user_id is None:
+        return True
+    uid = str(user_id)
+    current = time.time() if now is None else now
+    limit = RATE_LIMIT_MAX_MESSAGES if max_messages is None else max_messages
+    window = RATE_LIMIT_WINDOW_SECONDS if window_seconds is None else window_seconds
+    q = _user_rate_windows[uid]
+    while q and (current - q[0]) > window:
+        q.popleft()
+    if len(q) >= limit:
+        return False
+    q.append(current)
+    return True
+
+
+def reset_rate_limits() -> None:
+    _user_rate_windows.clear()
 
 
 def _detect_language(text: str) -> str:
@@ -144,11 +177,28 @@ def _ensure_message_and_model(
 
 
 async def classify_and_moderate(
-    message, server_config, db_session=None, discord_client=None, session=None
+    message,
+    server_config,
+    db_session=None,
+    discord_client=None,
+    session=None,
+    enforce_rate_limit: bool = False,
 ):
     msg_id = getattr(message, "id", 123456789)
-    msg_content = getattr(message, "content", "")
+    msg_content = (getattr(message, "content", "") or "")[:MAX_MESSAGE_CHARS]
     author = getattr(message, "author", None)
+
+    if enforce_rate_limit and author is not None:
+        author_id = getattr(author, "id", None)
+        if not check_user_rate_limit(author_id):
+            logger.warning(
+                f"[RATE_LIMIT] User {author_id} exceeded inference rate limit; skipping inference call for message {msg_id}"
+            )
+            return {
+                "action": "rate_limited",
+                "reason": "rate_limit_exceeded",
+                "message_id": msg_id,
+            }
 
     threshold_low = getattr(server_config, "threshold_low", 0.30)
     threshold_high = getattr(server_config, "threshold_high", 0.90)
@@ -304,7 +354,9 @@ async def classify_and_act(message: discord.Message) -> None:
             db.commit()
             if srv is not None:
                 server_cfg = srv
-        await classify_and_moderate(message, server_cfg, db_session=db)
+        await classify_and_moderate(
+            message, server_cfg, db_session=db, enforce_rate_limit=True
+        )
     finally:
         if db is not None:
             db.close()
