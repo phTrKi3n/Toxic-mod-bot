@@ -1,4 +1,9 @@
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
 import pytest
+
+from bot import commands, rbac
 
 
 @pytest.fixture(autouse=True)
@@ -7,20 +12,16 @@ def discord_only_legacy_mode(monkeypatch):
     monkeypatch.setenv("RBAC_DISCORD_ONLY", "true")
 
 
-from types import SimpleNamespace
-from unittest.mock import AsyncMock
-
-import pytest
-
-from bot import commands
-
-
 def make_message(*roles, content="/queue", guild=True, bot=False):
     return SimpleNamespace(
         content=content,
-        guild=SimpleNamespace(id=1) if guild else None,
+        guild=SimpleNamespace(id=1, name="Guild 1") if guild else None,
         author=SimpleNamespace(
-            bot=bot, roles=[SimpleNamespace(name=role) for role in roles]
+            id=99,
+            name="tester",
+            bot=bot,
+            roles=[SimpleNamespace(name=role) for role in roles],
+            send=AsyncMock(),
         ),
         channel=SimpleNamespace(send=AsyncMock()),
     )
@@ -68,11 +69,12 @@ async def test_mod_cannot_configure():
         ("Mod", "queue"),
     ],
 )
-async def test_authorized_user_reaches_dev_placeholder(role, name):
+async def test_authorized_user_passes_rbac_guard(role, name):
     message = make_message(role, content=f"/{name} 123")
-    with pytest.raises(NotImplementedError):
-        await commands.handle_command(message)
-    message.channel.send.assert_not_awaited()
+    await commands.handle_command(message)
+    message.channel.send.assert_awaited_once()
+    sent_text = message.channel.send.await_args.args[0]
+    assert sent_text != rbac.DENIED
 
 
 @pytest.mark.asyncio
@@ -98,16 +100,20 @@ async def test_similar_prefix_is_not_a_command(name):
 @pytest.mark.parametrize("role", ["member", "labeler", "mod", "admin"])
 async def test_appeal_is_available_to_all_roles(role):
     message = make_message(role, content="/appeal 123 lý do")
-    with pytest.raises(NotImplementedError):
-        await commands.handle_command(message)
-    message.channel.send.assert_not_awaited()
+    await commands.handle_command(message)
+    message.channel.send.assert_awaited_once()
+    sent_text = message.channel.send.await_args.args[0]
+    assert sent_text != rbac.DENIED
 
 
 @pytest.mark.asyncio
 async def test_revoked_role_is_checked_again():
     message = make_message("admin", content="/config")
-    with pytest.raises(NotImplementedError):
-        await commands.handle_command(message)
+    await commands.handle_command(message)
+    first_reply = message.channel.send.await_args.args[0]
+    assert first_reply != rbac.DENIED
+
+    message.channel.send.reset_mock()
     message.author.roles = []
     await commands.handle_command(message)
     message.channel.send.assert_awaited_once_with(
