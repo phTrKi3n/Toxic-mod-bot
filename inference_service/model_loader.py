@@ -51,7 +51,12 @@ class ModelManager:
             try:
                 from transformers import pipeline
 
-                model_name = os.getenv("MODEL_PATH", "xlm-roberta-base")
+                default_dir = (
+                    "models/xlmr-finetuned"
+                    if os.path.exists("models/xlmr-finetuned")
+                    else "xlm-roberta-base"
+                )
+                model_name = os.getenv("MODEL_PATH", default_dir)
                 self.pipeline = pipeline("text-classification", model=model_name)
                 logger.info(
                     f"Loaded real HuggingFace model '{model_name}' for version {self.version_tag}"
@@ -84,11 +89,41 @@ class ModelManager:
 
         if self.use_mock or self.pipeline == "mock_xlm_roberta_pipeline":
             text_lower = text.lower()
-            if any(k in text_lower for k in ["toxic", "chửi", "xấu", "rác"]):
+            toxic_keywords = [
+                "toxic",
+                "chửi",
+                "xấu",
+                "rác",
+                "ngu",
+                "đồ ngu",
+                "cút",
+                "khốn nạn",
+                "vô học",
+                "mất dạy",
+                "idiot",
+                "stupid",
+                "hate you",
+                "moron",
+                "trash",
+            ]
+            suspicious_keywords = [
+                "suspicious",
+                "nghi_ngov",
+                "nghi vấn",
+                "kém",
+                "vớ vẩn",
+                "nhảm",
+                "tào lao",
+                "spam",
+                "annoying",
+                "weird",
+            ]
+            clean_keywords = ["clean", "chào", "tốt", "cảm ơn", "hello", "thanks"]
+            if any(k in text_lower for k in toxic_keywords):
                 return 0.95
-            elif any(k in text_lower for k in ["suspicious", "nghi_ngov"]):
+            elif any(k in text_lower for k in suspicious_keywords):
                 return 0.60
-            elif any(k in text_lower for k in ["clean", "chào", "tốt"]):
+            elif any(k in text_lower for k in clean_keywords):
                 return 0.05
             else:
                 return round(random.uniform(0.01, 0.25), 4)
