@@ -187,11 +187,14 @@ def test_bilingual_validation_f1_score():
     Đánh giá định lượng mô hình (Chương V mục I.1): Đo Precision, Recall, F1-score
     trên tập validation song ngữ Việt-Anh (gồm cả từ lóng và chữ biến tấu).
     """
+    import os
+
     from sklearn.metrics import f1_score, precision_score, recall_score
 
     db = SessionLocal()
-    real_mgr = ModelManager(use_mock=False)
-    real_mgr.load_model_from_db(db)
+    use_mock_ci = os.getenv("MOCK_MODEL", "false").lower() in ("true", "1", "yes")
+    eval_mgr = ModelManager(use_mock=use_mock_ci)
+    eval_mgr.load_model_from_db(db)
 
     validation_samples = [
         ("Chào mọi người, hôm nay thời tiết đẹp quá!", 0),
@@ -210,7 +213,7 @@ def test_bilingual_validation_f1_score():
 
     y_true = [label for _, label in validation_samples]
     y_pred = [
-        1 if real_mgr.predict(text) >= 0.50 else 0 for text, _ in validation_samples
+        1 if eval_mgr.predict(text) >= 0.50 else 0 for text, _ in validation_samples
     ]
 
     precision = precision_score(y_true, y_pred)

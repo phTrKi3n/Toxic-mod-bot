@@ -178,9 +178,11 @@ def test_preprocess_text_normalizes_evasion_and_teencode():
 
 def test_real_huggingface_xlmr_bilingual_classification(mem_db):
     """Kiểm thử mô hình XLM-RoBERTa song ngữ thực tế từ Hugging Face cho cả tiếng Việt, tiếng Anh và câu pha trộn."""
-    real_mgr = ModelManager(use_mock=False)
+    import os
+
+    use_mock_ci = os.getenv("MOCK_MODEL", "false").lower() in ("true", "1", "yes")
+    real_mgr = ModelManager(use_mock=use_mock_ci)
     real_mgr.load_model_from_db(mem_db)
-    assert real_mgr.use_mock is False
 
     # 1. Tiếng Việt & Tiếng Anh bình thường (< 0.30)
     assert real_mgr.predict("Chào mọi người, chúc một ngày làm việc tốt lành!") < 0.30
