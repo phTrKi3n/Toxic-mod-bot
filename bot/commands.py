@@ -198,7 +198,7 @@ async def _handle_resolve(message: discord.Message) -> None:
     parts = message.content.strip().split(maxsplit=2)
     if len(parts) < 3:
         await message.channel.send(
-            "Cú pháp: /resolve <message_id> <delete|restore|approve|reject>"
+            "Cú pháp: /resolve <message_id> <delete|keep|restore|approve|reject>"
         )
         return
 
@@ -209,9 +209,9 @@ async def _handle_resolve(message: discord.Message) -> None:
         return
 
     action = parts[2].lower()
-    if action not in ("delete", "restore", "approve", "reject"):
+    if action not in ("delete", "keep", "restore", "approve", "reject"):
         await message.channel.send(
-            "Hành động không hợp lệ. Chọn một trong: delete, restore, approve, reject."
+            "Hành động không hợp lệ. Chọn một trong: delete, keep, restore, approve, reject."
         )
         return
 
@@ -277,7 +277,9 @@ async def _handle_resolve(message: discord.Message) -> None:
                     )
                 )
                 if hc is not None:
-                    hc.corrected_label = "toxic" if action == "delete" else "not_toxic"
+                    hc.corrected_label = (
+                        "toxic" if action in ("delete", "keep") else "not_toxic"
+                    )
                     hc.labeled_by = user_id
                     hc.status = "labeled"
 

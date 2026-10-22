@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from bot.actions import classify_and_moderate
 from db.models import Base, Classification, HardCase, Message, ModerationAction, Server
-from inference_service.model_loader import model_manager
+from inference_service.model_loader import ModelManager, model_manager, preprocess_text
 
 
 class _MockResponse:
@@ -166,3 +166,37 @@ async def test_inference_timeout_does_not_crash_bot(mem_db):
     )
     assert res["action"] == "bypass"
     assert res["reason"] == "timeout"
+
+
+def test_preprocess_text_normalizes_evasion_and_teencode():
+    """Kiểm tra tiền xử lý chuẩn hoá chữ biến tấu (chèn dấu chấm/gạch/khoảng trắng) và từ lóng tiếng Việt."""
+    assert preprocess_text("Đ.ồ n.g.u") == "Đồ ngu"
+    assert preprocess_text("n-g-u v_l") == "ngu vãi lồn"
+    assert preprocess_text("Mày đm nói chuyện vl") == "Mày địt mẹ nói chuyện vãi lồn"
+    assert preprocess_text("s t u p i d") == "stupid"
+
+
+def test_real_huggingface_xlmr_bilingual_classification(mem_db):
+    """Kiểm thử mô hình XLM-RoBERTa song ngữ thực tế từ Hugging Face cho cả tiếng Việt, tiếng Anh và câu pha trộn."""
+    real_mgr = ModelManager(use_mock=False)
+    real_mgr.load_model_from_db(mem_db)
+    assert real_mgr.use_mock is False
+
+    # 1. Tiếng Việt & Tiếng Anh bình thường (< 0.30)
+    assert real_mgr.predict("Chào mọi người, chúc một ngày làm việc tốt lành!") < 0.30
+    assert real_mgr.predict("Ý kiến của bạn sai bét rồi, đừng phát biểu liều") < 0.30
+    assert (
+        real_mgr.predict("Hello everyone, thank you for helping me with Python!") < 0.30
+    )
+    assert real_mgr.predict("This argument makes no sense at all, I disagree.") < 0.30
+
+    # 2. Tiếng Việt, Tiếng Anh, từ lóng & biến tấu độc hại nặng (>= 0.90)
+    assert real_mgr.predict("Đồ ngu, cút khỏi server đi thứ rác rưởi") >= 0.90
+    assert real_mgr.predict("Đ.ồ n.g.u, cút đi thứ rác rưởi") >= 0.90
+    assert real_mgr.predict("Mày nói chuyện nghe ngứa đít vl") >= 0.90
+    assert real_mgr.predict("You are a fucking idiot, shut up and get lost!") >= 0.90
+    assert real_mgr.predict("Bro nói chuyện toxic vl, đúng là stupid idiot") >= 0.90
+
+    # 3. Câu vùng nghi vấn (0.30 <= score < 0.90)
+    borderline_score = real_mgr.predict("Bình luận này hơi vớ vẩn và tào lao quá")
+    assert 0.30 <= borderline_score < 0.90
