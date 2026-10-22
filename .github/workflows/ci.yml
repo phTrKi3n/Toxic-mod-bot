@@ -2,9 +2,9 @@ name: CI/CD Pipeline - DevSecOps Quality & Security Audit
 
 on:
   push:
-    branches: [ main, ops, dev ]
+    branches: [ main, test, ops, dev, sec ]
   pull_request:
-    branches: [ main, ops, dev ]
+    branches: [ main, test, ops, dev, sec ]
 
 jobs:
   quality-and-security:
@@ -43,7 +43,7 @@ jobs:
 
       - name: Execute Automated Unit & Integration Tests (pytest)
         run: |
-          python -m pytest tests/test_ops.py --disable-warnings -v
+          python -m pytest tests/ --disable-warnings -v
 
   build-container:
     name: Build Docker Containers

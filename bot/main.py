@@ -9,9 +9,10 @@ import os
 import discord
 from dotenv import load_dotenv
 
-from bot import actions, commands
-
 load_dotenv()
+
+from bot import actions, commands
+from db.session import init_db
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -37,7 +38,8 @@ async def on_message(message: discord.Message) -> None:
 
 
 def run() -> None:
-    token = os.environ["DISCORD_BOT_TOKEN"]
+    init_db()
+    token = os.getenv("DISCORD_BOT_TOKEN") or os.environ["DISCORD_TOKEN"]
     client.run(token)
 
 

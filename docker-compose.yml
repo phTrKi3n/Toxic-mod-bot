@@ -50,8 +50,9 @@ services:
     environment:
       DATABASE_URL: postgresql://modbot_user:modbot_password@db:5432/modbot_db
       INFERENCE_SERVICE_URL: http://inference_service:8000/classify
-      DISCORD_TOKEN: ${DISCORD_TOKEN:-mock_token}
-      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-${DISCORD_TOKEN:-mock_token}}
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-${DISCORD_BOT_TOKEN:-mock_token}}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-${OPS_ALERT_WEBHOOK_URL:-}}
     depends_on:
       inference_service:
         condition: service_healthy
