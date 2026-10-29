@@ -1,40 +1,22 @@
-"""SEC: kiểm thử nhánh quyết định kiểm duyệt bằng score giả lập.
+"""SEC: kiểm thử an toàn quyết định kiểm duyệt bằng điểm giả lập.
 
-Không gọi Discord, Inference Service hay database thật. Không đánh giá
-Precision/Recall của mô hình và không xác nhận xoá tin nhắn thành công.
+Không gọi Discord, inference service hoặc database thật. Không đo FP/FN thực tế
+của mô hình. Tương thích với classify_and_moderate(session=...) dùng aiohttp.
 """
 
-import importlib.util
-import sys
-import types
-from pathlib import Path
-from unittest.mock import AsyncMock, patch
+import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
-import httpx
 import pytest
 
-
-@pytest.fixture
-def actions_module():
-    """Nạp đúng bot/actions.py, không cần kết nối hoặc cài discord.py."""
-    fake_discord = types.ModuleType("discord")
-    fake_discord.Message = type("Message", (), {})
-    path = Path(__file__).resolve().parents[1] / "bot" / "actions.py"
-    spec = importlib.util.spec_from_file_location("sec_actions_under_test", path)
-    assert spec is not None and spec.loader is not None
-    actions = importlib.util.module_from_spec(spec)
-    with patch.dict(sys.modules, {"discord": fake_discord}):
-        spec.loader.exec_module(actions)
-    return actions
+from bot import actions
 
 
-class FakeHTTPClient:
-    """Trả score định sẵn, không phát sinh HTTP request thật."""
-
-    def __init__(self, score, requests, timeout):
+class FakeResponse:
+    def __init__(self, score):
+        self.status = 200
         self.score = score
-        self.requests = requests
-        self.timeout = timeout
 
     async def __aenter__(self):
         return self
@@ -42,9 +24,19 @@ class FakeHTTPClient:
     async def __aexit__(self, exc_type, exc, tb):
         return False
 
-    async def post(self, url, json):
-        self.requests.append((url, json, self.timeout))
-        return types.SimpleNamespace(json=lambda: {"score": self.score})
+    async def json(self):
+        return {"score": self.score, "model_version_id": 1}
+
+
+class FakeSession:
+    def __init__(self, score):
+        self.score = score
+        self.requests = []
+        self.closed = False
+
+    def post(self, url, json=None, timeout=None):
+        self.requests.append((url, json, timeout))
+        return FakeResponse(self.score)
 
 
 @pytest.mark.asyncio
@@ -61,28 +53,30 @@ class FakeHTTPClient:
         (1.00, "delete"),
     ],
 )
-async def test_score_routes_to_expected_action(actions_module, monkeypatch, score, expected):
-    """Xác nhận ngưỡng 0.30 và 0.90, không chạy handler DEV còn TODO."""
-    actions = actions_module
-    requests = []
-    message = types.SimpleNamespace(content="noi dung gia lap")
+async def test_score_routes_to_expected_action(monkeypatch, score, expected):
+    """Kiểm tra điểm ranh giới: <0.30 ignore; <0.90 flag; >=0.90 delete."""
     delete = AsyncMock()
     flag = AsyncMock()
-
-    def make_client(*, timeout):
-        return FakeHTTPClient(score, requests, timeout)
-
-    monkeypatch.setattr(actions.httpx, "AsyncClient", make_client)
     monkeypatch.setattr(actions, "_delete_and_warn", delete)
     monkeypatch.setattr(actions, "_flag_for_review", flag)
 
-    await actions.classify_and_act(message)
+    message = SimpleNamespace(id=98765, content="noi dung gia lap", author=None)
+    config = SimpleNamespace(threshold_low=0.30, threshold_high=0.90)
+    session = FakeSession(score)
 
-    # Gửi đúng nội dung cần phân loại, không đính kèm ID user/guild/token.
-    # Đây chỉ là kiểm tra payload hiện tại, KHÔNG chứng minh bảo mật truyền tải.
-    assert requests == [
-        ("http://localhost:8000/classify", {"text": "noi dung gia lap"}, 2.0)
-    ]
+    result = await actions.classify_and_moderate(
+        message, config, db_session=None, session=session
+    )
+
+    assert result["action"] == expected
+    assert result["score"] == score
+    assert len(session.requests) == 1
+    url, payload, timeout = session.requests[0]
+    assert url == actions.INFERENCE_URL
+    # SEC chỉ xác nhận payload phân loại không chứa ID người dùng/server/token.
+    assert payload == {"text": "noi dung gia lap"}
+    assert timeout.total == actions.INFERENCE_TIMEOUT_SECONDS
+
     if expected == "delete":
         delete.assert_awaited_once_with(message, score)
         flag.assert_not_awaited()
@@ -90,35 +84,39 @@ async def test_score_routes_to_expected_action(actions_module, monkeypatch, scor
         flag.assert_awaited_once_with(message, score)
         delete.assert_not_awaited()
     else:
-        flag.assert_not_awaited()
         delete.assert_not_awaited()
+        flag.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_inference_timeout_does_not_trigger_delete_or_flag(actions_module, monkeypatch):
-    """Timeout phải bỏ qua quyết định, không gọi hành động kiểm duyệt."""
-    actions = actions_module
+async def test_inference_timeout_does_not_trigger_delete_or_flag(monkeypatch):
+    """Timeout phải bypass, không xóa hoặc đánh dấu nhầm."""
     delete = AsyncMock()
     flag = AsyncMock()
+    monkeypatch.setattr(actions, "_delete_and_warn", delete)
+    monkeypatch.setattr(actions, "_flag_for_review", flag)
+    monkeypatch.setattr(actions.error_tracker, "record_error", lambda *_: None)
 
-    class TimeoutClient:
-        def __init__(self, *, timeout):
-            assert timeout == actions.INFERENCE_TIMEOUT_SECONDS
-
+    class TimeoutResponse:
         async def __aenter__(self):
-            return self
+            raise asyncio.TimeoutError("SEC simulated timeout")
 
         async def __aexit__(self, exc_type, exc, tb):
             return False
 
-        async def post(self, url, json):
-            raise httpx.ReadTimeout("SEC simulated timeout")
+    class TimeoutSession:
+        closed = False
 
-    monkeypatch.setattr(actions.httpx, "AsyncClient", TimeoutClient)
-    monkeypatch.setattr(actions, "_delete_and_warn", delete)
-    monkeypatch.setattr(actions, "_flag_for_review", flag)
+        def post(self, url, json=None, timeout=None):
+            return TimeoutResponse()
 
-    message = types.SimpleNamespace(content="noi dung gia lap")
-    assert await actions.classify_and_act(message) is None
+    message = SimpleNamespace(id=98766, content="noi dung gia lap", author=None)
+    config = SimpleNamespace(threshold_low=0.30, threshold_high=0.90)
+    result = await actions.classify_and_moderate(
+        message, config, db_session=None, session=TimeoutSession()
+    )
+
+    assert result["action"] == "bypass"
+    assert result["reason"] == "timeout"
     delete.assert_not_awaited()
     flag.assert_not_awaited()

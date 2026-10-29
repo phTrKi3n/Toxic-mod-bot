@@ -1,51 +1,48 @@
-# SEC | Rà soát an toàn dữ liệu người dùng
+# SEC | Rà soát an toàn dữ liệu người dùng (cập nhật sau đồng bộ)
 
-Ngày rà soát: 2026-10-29  
-Phạm vi: mã nguồn trong bản `SEC-Git.zip`, nhánh `sec`, commit `4a6bcb1`.  
-Trạng thái: **đánh giá thiết kế/mã nguồn**, không phải kết luận pentest hay kiểm thử bảo mật môi trường thật.
+Ngày rà soát: 2026-10-29
+Phạm vi: mã nguồn nhánh `sec` sau khi đồng bộ các thay đổi của nhóm.
+Trạng thái: đánh giá mã nguồn, **chưa phải xác nhận bảo mật trên môi trường triển khai thật**.
 
-## 1. Phạm vi dữ liệu
+## 1. Dữ liệu được xử lý
 
-Đề tài tập trung vào bốn chức năng đã chốt: thu thập bình luận, gắn nhãn, kiểm duyệt và khiếu nại. SEC không thay đổi luồng nghiệp vụ, cơ sở dữ liệu hoặc hành vi bot.
+| Dữ liệu | Vị trí trong code/schema | Nguy cơ cần kiểm soát |
+|---|---|---|
+| ID, tên và vai trò Discord | `db/models.py` (`User`), `bot/actions.py` | Lộ thông tin định danh và quyền truy cập |
+| Nội dung bình luận | `Message.content`, `classify_and_moderate()` | Có thể chứa dữ liệu cá nhân/nhạy cảm |
+| Điểm phân loại | `Classification.score`, `HardCase.original_score` | Lộ thông tin kiểm duyệt hoặc gắn nhãn sai |
+| Lý do kháng nghị | `Appeal.reason`, `bot/commands.py` | Có thể chứa thông tin riêng tư |
+| Lịch sử xử lý | `ModerationAction`, `Appeal.resolved_by` | Cần đảm bảo quyền truy cập và khả năng truy vết |
 
-| Dữ liệu | Bằng chứng trong mã nguồn | Mục đích trong thiết kế | Lưu ý bảo mật |
+## 2. Điều đã xác minh trong phiên bản mới
+
+- `bot/main.py` bật `intents.message_content=True` để đọc nội dung tin nhắn.
+- `bot/actions.py` giới hạn nội dung gửi inference bằng `MAX_MESSAGE_CHARS`, có hàm giới hạn tần suất theo người dùng `check_user_rate_limit()`.
+- Gọi inference hiện sử dụng `aiohttp`, gửi payload `{"text": ...}` tới `INFERENCE_URL`, **không phải `httpx` hoặc URL localhost cố định**.
+- `bot/actions.py` hiện có code thực hiện xóa, gửi DM, ghi `Classification`, `HardCase` và `ModerationAction` vào DB khi có session; không còn đúng khi mô tả toàn bộ hành động là `NotImplementedError`.
+- `bot/commands.py` đã có code xử lý `/appeal`, `/queue`, `/resolve`, `/label`, `/config`. Chưa thể khẳng định toàn bộ đường chạy đã kiểm thử hoặc triển khai thành công trong thực tế.
+- `.gitignore` có quy tắc loại trừ `.env` trong bản đã rà soát trước; vẫn cần kiểm tra lịch sử Git và môi trường chạy nếu đánh giá rò rỉ secret.
+
+## 3. Rủi ro đáng chú ý, có bằng chứng từ code
+
+| Rủi ro | Bằng chứng/điều kiện | Đề xuất của SEC | Đơn vị tích hợp |
 |---|---|---|---|
-| `app_user.discord_id`, `app_user.username`, `app_user.role` | `db/models.py`, lớp `User` | Nhận diện người dùng và phân quyền | Dữ liệu định danh, tránh ghi công khai |
-| `message.content`, `message.user_id`, `message.server_id`, `message.created_at` | `db/models.py`, lớp `Message` | Lưu bình luận cần phân loại/kiểm duyệt | Nội dung có thể chứa thông tin nhạy cảm |
-| `appeal.reason`, `appeal.user_id`, `appeal.message_id` | `db/models.py`, lớp `Appeal` | Lưu lý do khiếu nại | Nội dung khiếu nại có thể chứa thông tin riêng tư |
-| `classification.score` | `db/models.py`, lớp `Classification` | Điểm dự đoán phục vụ quyết định | Cần hạn chế hiển thị ngoài phạm vi kiểm duyệt |
-| `moderation_action.decided_by`, `decided_at` | `db/models.py`, lớp `ModerationAction` | Thiết kế lưu lịch sử quyết định | Cột dữ liệu có sẵn, chưa chứng minh handler đã ghi log thật |
+| Lộ chi tiết lỗi nội bộ | Một số nhánh `except` ở `bot/commands.py` gửi `{e}` trực tiếp vào Discord | Chỉ gửi thông báo lỗi chung cho người dùng; lưu chi tiết nội bộ an toàn | DEV |
+| Lộ thông tin hàng đợi | `_send_private_or_channel()` gửi vào kênh hiện tại nếu DM thất bại | Chỉ gửi vào DM/kênh kiểm duyệt riêng đã xác minh quyền; tránh fallback vào kênh công khai | DEV/SEC phối hợp |
+| Nội dung nhạy cảm trong CSDL | `Message.content` và `Appeal.reason` được lưu theo nghiệp vụ | Áp dụng phân quyền DB, nguyên tắc tối thiểu dữ liệu; kiểm tra thời gian lưu | DEV/OPS |
+| Thông tin sai về hành động thành công | Trong `bot/commands.py`, một số lỗi xóa tin có thể bị bỏ qua nhưng thông báo đã ghi nhận action | Phân biệt 'đã ghi bản ghi' và 'đã xóa tin trên Discord' | DEV |
+| Thời gian lưu dữ liệu | Chưa xác nhận chính sách giữ/xóa dữ liệu | Thống nhất thời hạn lưu, xóa/anonymize và quyền truy cập | Nhóm phụ trách nghiệp vụ |
+| Log lỗi và token | Có đường ghi lỗi, chưa xác minh cấu hình production | Không ghi token/nội dung nhạy cảm; kiểm tra mức log và vòng đời secret | OPS/SEC phối hợp |
 
-## 2. Điều đã kiểm chứng từ code
+## 4. Giới hạn công việc SEC
 
-- `bot/main.py` đặt `intents.message_content = True`, nên bot **được cấu hình để đọc nội dung** tin nhắn mà Discord cung cấp cho bot.
-- `bot/actions.py` gửi `{"text": message.content}` đến `http://localhost:8000/classify`. Không thấy user ID/token trong payload của lời gọi này. Đây vẫn là nội dung bình luận gốc được gửi sang service.
-- `db/models.py` có cấu trúc lưu bình luận, lý do khiếu nại và dấu vết hành động, nhưng **chỉ có mô hình dữ liệu không đủ khẳng định dữ liệu đã được ghi/lưu thực tế**.
-- `.gitignore` đã loại trừ `.env`. Điều đó không chứng minh lịch sử Git hoặc máy triển khai chưa từng lộ token.
-- `bot/actions.py` chưa hiện thực `_delete_and_warn`, `_flag_for_review`; `bot/commands.py` còn handler `NotImplementedError`. Chưa thể xác nhận kiểm soát truy cập dữ liệu cuối luồng, lưu/ẩn thông tin trong khiếu nại hay ghi audit thực tế.
-- Chưa thấy triển khai thời hạn lưu, cơ chế xóa dữ liệu định kỳ hay quy trình xử lý yêu cầu xóa dữ liệu trong các file đã rà soát.
+SEC chỉ **ghi nhận rủi ro, kiểm tra các điều kiện bảo mật và bàn giao**. Không tự sửa code nghiệp vụ DEV/OPS, ERD, ngưỡng phân loại hoặc luồng hoạt động đã chốt mà chưa thống nhất theo `rule_sec.md`.
 
-## 3. Bảng rủi ro và biện pháp đề xuất
+## 5. Tiêu chí bàn giao
 
-| Rủi ro | Bằng chứng / điều kiện | Tác động có thể xảy ra | Khuyến nghị | Trạng thái |
-|---|---|---|---|---|
-| Lộ nội dung bình luận | Có `message.content` và luồng gửi nội dung gốc đến Inference Service | Tiết lộ nội dung nhạy cảm nếu quyền truy cập DB/service bị cấu hình sai | Chỉ cho dịch vụ/nhân sự cần thiết truy cập; tránh in nguyên văn nội dung vào log | Đề xuất, chưa triển khai xác minh |
-| Lộ lý do khiếu nại | Có trường `appeal.reason`; handler khiếu nại còn TODO | Người khác nhìn thấy thông tin riêng tư do người dùng tự cung cấp | Giới hạn người xem theo quyền và sở hữu; không đưa lý do vào kênh công khai | Đề xuất, chờ tích hợp DEV |
-| Lưu dữ liệu không giới hạn | Chưa tìm thấy chính sách giữ/xóa dữ liệu trong mã nguồn được rà soát | Dữ liệu tồn đọng làm tăng hậu quả nếu bị truy cập trái phép | Thống nhất thời gian giữ và nhu cầu xóa/anonymize với nhóm và chủ server | Chưa chốt chính sách |
-| Lộ token cấu hình | Bot đọc token từ biến môi trường; `.env` nằm trong `.gitignore` | Nếu token lộ, người khác có thể điều khiển bot | Không đẩy `.env`; rà soát secret trong commit; reset token nếu nghi lộ | Có quy tắc Git; chưa đánh giá máy chủ thật |
-| Audit không đầy đủ | Schema có `decided_by`, nhưng handlers chưa có thao tác ghi đầy đủ | Khó truy lại ai quyết định xóa/khôi phục | DEV triển khai ghi audit; SEC kiểm tra kết quả bằng test sau khi tích hợp | Chờ DEV/OPS |
+1. DEV xác nhận cách gửi thông tin hàng đợi khi DM thất bại, tránh lộ nội dung vào kênh không được phép.
+2. DEV thống nhất mẫu lỗi chung thay cho việc gửi nguyên văn exception vào Discord.
+3. Nhóm thống nhất chính sách lưu và xóa dữ liệu bình luận/kháng nghị.
+4. SEC/TEST xác minh lại các kiểm soát này trên môi trường tích hợp khi có dữ liệu giả lập phù hợp.
 
-## 4. Ranh giới trách nhiệm
-
-**SEC tự làm:** rà soát dữ liệu/luồng, viết tiêu chí và tài liệu; kiểm tra khi có chức năng thật; báo rủi ro và theo dõi.
-
-**Cần DEV/OPS:** thay đổi DB, triển khai xóa dữ liệu, thêm kênh kiểm duyệt riêng, log vận hành, hardening service, thay đổi cách gửi/giữ dữ liệu. Các việc này có thể ảnh hưởng luồng Activity/Use case nên phải thông qua quy trình chung.
-
-## 5. Tiêu chí xác nhận hoàn thành sau tích hợp
-
-1. Kiểm tra quyền đọc bình luận và khiếu nại bằng tài khoản không được phép.
-2. Kiểm tra không có token/chuỗi kết nối/nội dung nhạy cảm không cần thiết trong log thực tế.
-3. Xác nhận dữ liệu bình luận được lưu ở đâu, trong bao lâu, ai được đọc và ai có thể yêu cầu xóa.
-4. Kiểm tra thao tác kiểm duyệt ghi được `action_type`, `decided_by`, `decided_at` theo thiết kế.
-
-**Kết luận SEC hiện tại:** đã lập hồ sơ rủi ro riêng tư dựa trên code, chưa thể xác nhận các biện pháp tích hợp đã chạy vì phần handler/backend còn chưa hoàn thiện. Không thay đổi ERD, RBAC hay logic nghiệp vụ.
+**Kết luận:** Có cơ chế xử lý và lưu dữ liệu thực tế trong code mới, nhưng các nguy cơ riêng tư và hành vi trong môi trường chạy vẫn cần xác nhận; không kết luận đã xảy ra rò rỉ dữ liệu.

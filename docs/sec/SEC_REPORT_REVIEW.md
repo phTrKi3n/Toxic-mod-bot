@@ -1,36 +1,38 @@
-# SEC | Rà soát nội dung bảo mật Chương III và IV
+# SEC | Rà soát bảo mật Chương III–IV sau đồng bộ mã nguồn
 
-Ngày: 2026-10-29  
-Tài liệu được đối chiếu: `docs/BaoCao_DoAn_6Chuong_DevSecOps.docx` trong bản ZIP đã nhận.  
-**Không sửa `.docx` chung**: theo quy định Git, phải thông báo DEV/OPS và chỉ một người sửa file Word tại một thời điểm.
+Ngày rà soát: 2026-10-29
+Nguồn: báo cáo Word đã gửi trước đó và mã nguồn nhánh `sec` mới.
+**Không chỉnh sửa trực tiếp báo cáo Word chung**, chờ nhóm thống nhất người phụ trách.
 
-## 1. Các phần đã có, không cần viết lại
+## 1. Nội dung đã có
 
-- **Chương III, phần phân quyền/an toàn schema:** nêu `app_user.role`, `appeal.message_id` là UNIQUE, `moderation_action.decided_by` và các ràng buộc. Mã nguồn `db/models.py` có các trường/ràng buộc phù hợp ở mức thiết kế.
-- **Chương IV, mục V Threat Model:** bảng đã có **7 nhóm mối đe dọa**: raid, spam/DoS, evasion, rò rỉ token, SQL injection, lạm quyền, máy chủ bị chiếm/C2. Không thêm nhóm trùng lặp và không đổi sơ đồ.
-- **Chương III, activity theo ngưỡng:** văn bản nêu thấp hơn ngưỡng thấp là bỏ qua; ở giữa là đánh dấu; đạt ngưỡng cao là xóa. Phần này phù hợp `bot/actions.py` ở mức chọn nhánh.
+- Threat Model ở Chương IV đã mô tả 7 nhóm mối đe dọa.
+- Báo cáo có các mô hình dữ liệu liên quan tới người dùng, bình luận, kháng nghị và nhật ký kiểm duyệt.
+- Các ngưỡng ra quyết định được mô tả ở mức thiết kế.
 
-## 2. Các điểm cần trao đổi, chưa tự ý sửa
+## 2. Các điểm cần đối chiếu/chốt với nhóm
 
-| Vị trí báo cáo | Đối chiếu thực tế | Đề xuất xử lý | Người phối hợp |
-|---|---|---|---|
-| Chương III, IV, mục “Một số truy vấn tiêu biểu”: `WHERE c.score BETWEEN 0.30 AND 0.90` | `BETWEEN` bao gồm điểm `0.90`, trong khi `bot/actions.py` chuyển `score >= 0.90` sang nhánh xóa | DEV xác nhận và nếu thống nhất sửa điều kiện hàng đợi thành `c.score >= 0.30 AND c.score < 0.90` | DEV |
-| Chương II mục IV.4, câu “Quyết định xoá, giữ, khôi phục đều ghi log” và Chương III mô tả UC04-UC06 | Đây là thiết kế/kỳ vọng; `bot/actions.py` và `bot/commands.py` còn `NotImplementedError` | Giữ nội dung nếu nói về **thiết kế dự kiến**; không trình bày như kết quả triển khai và kiểm thử đã hoàn thành | DEV, người chỉnh Word |
-| Chương III, mục “Ràng buộc an toàn dữ liệu ở mức schema” | Có cấu trúc audit ở ERD, nhưng chưa xác minh log/audit được ghi thật | Chỉ khẳng định **schema hỗ trợ truy vết**, không khẳng định mọi quyết định đã được lưu | SEC/DEV |
-| Chương IV, mục V, Threat Model và Chương V phần kiểm thử | Các biện pháp chủ yếu ở dạng đề xuất hoặc kế hoạch, không phải kết quả pentest; Chương VI đã nêu đồ án còn ở mức phân tích/thiết kế | Tiếp tục phân biệt “đã thiết kế”, “đã unit test” và “đã tích hợp thực tế” | SEC/OPS |
+| Vị trí/nội dung | Kiểm tra từ mã nguồn | Việc cần làm |
+|---|---|---|
+| Truy vấn hàng đợi dùng `BETWEEN 0.30 AND 0.90` | `BETWEEN` gồm 0.90; code dùng nhánh xóa khi `score >= threshold_high` | DEV kiểm tra logic/chỉnh mô tả hoặc SQL theo thiết kế cuối |
+| Mô tả handler là chưa triển khai | `bot/actions.py` đã có xóa/gửi DM/ghi DB, `bot/commands.py` có các lệnh kiểm duyệt và kháng nghị | Bỏ nhận định cũ “tất cả còn NotImplementedError”; phân biệt có code và đã kiểm thử tích hợp |
+| Chống spam/DoS | `check_user_rate_limit`, `MAX_MESSAGE_CHARS` có trong code mới | Ghi đúng tình trạng đã có code, chưa mặc định đồng nghĩa phòng thủ đủ trên môi trường production |
+| Bảo mật khi hiển thị lỗi | Một số `except` trong `bot/commands.py` gửi nguyên `Exception` cho người dùng | SEC ghi rủi ro lộ chi tiết lỗi, DEV xử lý theo quy trình |
+| Nội dung hàng đợi kiểm duyệt | Khi gửi DM thất bại, `_send_private_or_channel()` có thể gửi vào kênh đang gọi lệnh | DEV/SEC xác minh quyền riêng tư của kênh và bổ sung kiểm soát nếu cần |
+| Audit kiểm duyệt | Code có các nhánh ghi `ModerationAction` và cập nhật kháng nghị | Chỉ khẳng định có code ghi bản ghi; tính chính xác cần test tích hợp |
 
-## 3. Đoạn bổ sung ngắn có thể đưa vào báo cáo nếu nhóm đồng ý
+## 3. Đoạn SEC đề xuất cho báo cáo (khi được nhóm đồng ý)
 
-> **An toàn dữ liệu người dùng (SEC).** Hệ thống được thiết kế để lưu nội dung bình luận, điểm phân loại và lý do khiếu nại. Dữ liệu này có thể chứa thông tin riêng tư nên cần giới hạn quyền đọc, tránh ghi nội dung không cần thiết vào log và xác định thời gian lưu phù hợp. Các trường lịch sử kiểm duyệt trong mô hình dữ liệu hỗ trợ truy vết quyết định, nhưng hiệu quả kiểm soát phải được xác minh lại khi các chức năng ghi dữ liệu và xử lý khiếu nại được tích hợp hoàn chỉnh.
->
-> **Rủi ro sai lệch kiểm duyệt (SEC).** Sai dương tính có thể dẫn đến xóa nhầm bình luận hợp lệ; sai âm tính khiến bình luận độc hại không được xử lý. Ở mức logic hiện có, điểm thấp hơn 0.30 không kích hoạt xử lý, điểm từ 0.30 đến dưới 0.90 được chuyển vào nhánh đánh dấu, còn điểm từ 0.90 trở lên kích hoạt nhánh xóa. Nhóm SEC đã bổ sung kiểm thử mô phỏng cho các ranh giới quyết định này. Kết quả không thay thế việc đánh giá Precision, Recall và F1-score bằng tập dữ liệu có nhãn hoặc thử nghiệm kiểm duyệt thực tế.
+**An toàn dữ liệu:** Bot xử lý nội dung bình luận, điểm phân loại, dữ liệu kháng nghị và lịch sử kiểm duyệt. Mã nguồn hiện đã có các nhánh ghi dữ liệu và giới hạn tần suất/độ dài đầu vào. SEC xác định các nguy cơ cần lưu ý như thông báo lỗi lộ chi tiết nội bộ, thông tin hàng đợi bị hiển thị ở kênh không phù hợp khi DM thất bại, và chính sách lưu giữ dữ liệu chưa được xác minh. Các biện pháp giảm thiểu cần được đánh giá lại trong kiểm thử tích hợp và vận hành thực tế.
+
+**FP/FN:** Hành động được chọn dựa trên ngưỡng thấp/cao cấu hình cho server. SEC sử dụng điểm giả lập để kiểm tra ranh giới nhánh xử lý và trường hợp inference timeout. Kết quả chỉ xác nhận logic chọn hành động trên phiên bản code kiểm thử, không thay thế đánh giá chất lượng phân loại hoặc kiểm thử xóa tin thực tế.
 
 ## 4. Trạng thái bàn giao
 
-- [x] Đã đối chiếu nội dung SEC trên Word với code ở mức mã nguồn.
-- [x] Đã ghi các nội dung có thể bổ sung mà không đổi sơ đồ/luồng.
-- [ ] DEV xác nhận điều kiện truy vấn hàng đợi tại điểm 0.90.
-- [ ] Nhóm thống nhất thời điểm sửa `.docx` chung và áp dụng đoạn bổ sung (nếu cần).
-- [ ] Kiểm thử tích hợp sau khi DEV/OPS hiện thực các handler.
+- [x] Đã rà soát mã nguồn mới và cập nhật tài liệu SEC cho phù hợp.
+- [ ] Chạy lại bộ unit test SEC và ghi nhận kết quả sau đồng bộ.
+- [ ] DEV xác nhận quy tắc truy vấn hàng đợi tại ngưỡng cao và vấn đề lộ lỗi/DM fallback.
+- [ ] Người phụ trách báo cáo chung duyệt và áp dụng thay đổi vào Word (nếu cần).
+- [ ] TEST/OPS xác minh hành vi trên môi trường tích hợp.
 
-**Kết luận:** SEC đã hoàn thành rà soát và chuẩn bị nội dung. Chưa sửa báo cáo Word hay tuyên bố các chức năng đang TODO là đã hoạt động.
+**Kết luận:** Tài liệu này phản ánh mã nguồn mới ở mức phân tích tĩnh. Không khẳng định toàn hệ thống đã kiểm thử hoàn chỉnh.
