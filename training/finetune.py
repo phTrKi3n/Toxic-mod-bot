@@ -1,7 +1,5 @@
 """
-training/finetune.py — fine-tune XLM-R trên tập gộp đã tạo ở prepare_dataset.py,
-chạy trên Google Colab theo Chương I mục III.3. Chỉ fine-tune phần đầu phân
-loại, không train model từ đầu.
+training/finetune.py — Fine-tune XLM-RoBERTa on the merged bilingual dataset.
 """
 
 import os

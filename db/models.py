@@ -1,7 +1,5 @@
 """
-db/models.py — ORM khớp đúng ERD đã chốt ở Chương III của báo cáo.
-Không tự thêm bảng hoặc trường mới ở đây; mọi thay đổi entity phải đi qua
-thống nhất chung (rule.md mục 7) và ghi log trước khi sửa file này.
+db/models.py — SQLAlchemy ORM models for Toxic-Mod-Bot.
 """
 
 from datetime import datetime

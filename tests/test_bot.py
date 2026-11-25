@@ -154,3 +154,43 @@ async def test_labeler_can_label_hardcase(db_url):
         assert hc.status == "labeled"
         assert hc.corrected_label == "toxic"
         assert hc.labeled_by == 3
+
+
+@pytest.mark.asyncio
+async def test_slash_command_adapter_runs_config(db_url):
+    """Verify Discord Slash Command adapter updates server thresholds with ephemeral response."""
+    deferred = {"done": False}
+
+    async def _defer(*args, **kwargs):
+        deferred["done"] = True
+
+    response = SimpleNamespace(
+        is_done=lambda: deferred["done"],
+        defer=AsyncMock(side_effect=_defer),
+        send_message=AsyncMock(),
+    )
+    interaction = SimpleNamespace(
+        id=999999,
+        guild=SimpleNamespace(id="100", name="Test Guild"),
+        user=SimpleNamespace(
+            id="40",
+            name="admin_user",
+            bot=False,
+            roles=[SimpleNamespace(name="admin")],
+            send=AsyncMock(),
+        ),
+        channel=SimpleNamespace(send=AsyncMock(), fetch_message=AsyncMock()),
+        response=response,
+        followup=SimpleNamespace(send=AsyncMock()),
+    )
+
+    await commands.handle_slash_command(interaction, "/config threshold_high 0.85")
+    response.defer.assert_awaited_once_with(ephemeral=True)
+    interaction.followup.send.assert_awaited_once()
+    assert "0.85" in interaction.followup.send.await_args.args[0]
+
+    engine = create_engine(db_url)
+    with Session(engine) as session:
+        srv = session.scalar(select(Server).where(Server.guild_id == "100"))
+        assert srv is not None
+        assert abs(srv.threshold_high - 0.85) < 1e-6

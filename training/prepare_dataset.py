@@ -1,8 +1,6 @@
 """
-training/prepare_dataset.py — gộp Jigsaw Toxic Comment (tiếng Anh) và
-ViHSD/UIT-ViCTSD (tiếng Việt) thành một tập huấn luyện chung, quy về cùng
-thang nhãn nhị phân toxic/not_toxic, đúng Chương I mục III.2 của báo cáo.
-Không tự thu thập dữ liệu mới, chỉ dùng lại 2 nguồn công khai đã duyệt.
+training/prepare_dataset.py — Merge Jigsaw (English) and ViHSD (Vietnamese)
+into a unified binary toxic/not_toxic training CSV.
 """
 
 import pandas as pd

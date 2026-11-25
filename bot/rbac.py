@@ -27,15 +27,38 @@ def _engine(url):
 
 
 def _discord_role(message):
-    if getattr(message, "guild", None) is None or getattr(message.author, "bot", False):
+    guild = getattr(message, "guild", None)
+    author = getattr(message, "author", None)
+    if guild is None or author is None or getattr(author, "bot", False):
         return None
-    # Never use display names or global administrator status as a grant.
-    roles = {
-        getattr(r, "name", "").casefold() for r in getattr(message.author, "roles", ())
-    }
-    return next(
-        (r for r in ("admin", "mod", "labeler", "member") if r in roles), "member"
-    )
+    roles = {getattr(r, "name", "").casefold() for r in getattr(author, "roles", ())}
+    explicit = next((r for r in ("admin", "mod", "labeler") if r in roles), None)
+    if explicit is not None:
+        return explicit
+
+    owner_id = getattr(guild, "owner_id", None)
+    author_id = getattr(author, "id", None)
+    if (
+        owner_id is not None
+        and author_id is not None
+        and str(owner_id) == str(author_id)
+    ):
+        return "admin"
+
+    perms = getattr(author, "guild_permissions", None)
+    if perms is not None:
+        if (
+            getattr(perms, "administrator", False) is True
+            or getattr(perms, "manage_guild", False) is True
+        ):
+            return "admin"
+        if (
+            getattr(perms, "manage_messages", False) is True
+            or getattr(perms, "moderate_members", False) is True
+        ):
+            return "mod"
+
+    return "member"
 
 
 def allowed(message, permission, *, session=None):

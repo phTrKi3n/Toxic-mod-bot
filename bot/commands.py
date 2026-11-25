@@ -1,23 +1,25 @@
 """
-bot/commands.py — xử lý lệnh của người dùng qua bot, khớp UC03, UC04, UC05,
-UC06, UC09, UC10 ở Chương III. RBAC (SEC) áp dụng ở đây: chỉ Mod/Admin mới
-gọi được các lệnh quản trị, đồng thời kiểm tra ownership và guild scope.
+bot/commands.py — Prefix & Slash command handlers with guild-scoped RBAC.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+import aiohttp
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 if TYPE_CHECKING:
     import discord
 from bot import rbac
-from bot.actions import sync_discord_context
+from bot.actions import INFERENCE_URL, sync_discord_context
 from db.models import Appeal, HardCase, Message, ModerationAction, Server, User
+
+logger = logging.getLogger("bot.commands")
 
 
 def has_role(message: discord.Message, allowed_roles: set[str]) -> bool:
@@ -289,9 +291,13 @@ async def _handle_resolve(message: discord.Message) -> None:
                     if callable(fetch_msg):
                         try:
                             discord_msg = await fetch_msg(target_message_id)
-                            await discord_msg.delete()
-                        except Exception:
-                            pass
+                            if discord_msg is not None:
+                                await discord_msg.delete()
+                        except Exception as del_err:
+                            if type(del_err).__name__ == "Forbidden":
+                                logger.warning(
+                                    f"Missing 'Manage Messages' permission to delete message {target_message_id}"
+                                )
 
                 session.commit()
                 await message.channel.send(
@@ -413,3 +419,99 @@ async def _handle_config(message: discord.Message) -> None:
             )
     except Exception as e:
         await message.channel.send(f"Lỗi khi cập nhật cấu hình: {e}")
+
+
+class _InteractionChannelAdapter:
+    def __init__(self, interaction):
+        self._interaction = interaction
+        self._raw_channel = getattr(interaction, "channel", None)
+
+    async def send(self, content: str) -> None:
+        resp = getattr(self._interaction, "response", None)
+        if resp is not None and not resp.is_done():
+            await resp.send_message(content, ephemeral=True)
+            return
+        followup = getattr(self._interaction, "followup", None)
+        if followup is not None:
+            await followup.send(content, ephemeral=True)
+        elif self._raw_channel is not None:
+            await self._raw_channel.send(content)
+
+    async def fetch_message(self, message_id: int):
+        if self._raw_channel is not None and hasattr(
+            self._raw_channel, "fetch_message"
+        ):
+            return await self._raw_channel.fetch_message(message_id)
+        return None
+
+
+class _InteractionMessageAdapter:
+    def __init__(self, interaction, content: str):
+        self.content = content
+        self.guild = getattr(interaction, "guild", None)
+        self.author = getattr(interaction, "user", None)
+        self.channel = _InteractionChannelAdapter(interaction)
+        self.id = getattr(interaction, "id", 0)
+
+
+async def handle_slash_command(interaction, command_line: str) -> None:
+    """Adapt a Discord Interaction into a prefix command message and run RBAC + business logic."""
+    resp = getattr(interaction, "response", None)
+    if (
+        resp is not None
+        and callable(getattr(resp, "defer", None))
+        and not resp.is_done()
+    ):
+        await resp.defer(ephemeral=True)
+    msg = _InteractionMessageAdapter(interaction, command_line)
+    await handle_command(msg)
+
+
+async def handle_status_slash(interaction) -> None:
+    """Report active model health, server moderation thresholds, and caller RBAC role."""
+    resp = getattr(interaction, "response", None)
+    if (
+        resp is not None
+        and callable(getattr(resp, "defer", None))
+        and not resp.is_done()
+    ):
+        await resp.defer(ephemeral=True)
+
+    adapter = _InteractionMessageAdapter(interaction, "/status")
+    role = rbac._discord_role(adapter) or "guest"
+    low = float(os.getenv("THRESHOLD_LOW", "0.30"))
+    high = float(os.getenv("THRESHOLD_HIGH", "0.90"))
+
+    database_url = os.getenv("DATABASE_URL")
+    guild = getattr(interaction, "guild", None)
+    if database_url and guild is not None:
+        try:
+            with Session(rbac._engine(database_url)) as db:
+                srv = db.scalar(select(Server).where(Server.guild_id == str(guild.id)))
+                if srv is not None:
+                    low = srv.threshold_low
+                    high = srv.threshold_high
+        except Exception:
+            pass
+
+    health_url = INFERENCE_URL.rsplit("/classify", 1)[0] + "/health"
+    model_status = "unreachable"
+    try:
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=2.0)
+        ) as session:
+            async with session.get(health_url) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    model_status = f"{data.get('status', 'healthy')} ({data.get('version_tag', 'unknown')})"
+                else:
+                    model_status = f"http_{r.status}"
+    except Exception:
+        pass
+
+    await adapter.channel.send(
+        f"**Toxic-Mod-Bot Status**\n"
+        f"- Inference Service: `{model_status}`\n"
+        f"- Server Thresholds: `low={low:.2f}`, `high={high:.2f}`\n"
+        f"- Your Role: `{role}`"
+    )

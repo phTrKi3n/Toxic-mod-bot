@@ -369,6 +369,10 @@ async def _delete_and_warn(message: discord.Message, score: float) -> None:
         if hasattr(message, "delete") and callable(message.delete):
             await message.delete()
             logger.info(f"Deleted toxic message {msg_id} (score={score:.4f})")
+    except discord.Forbidden:
+        logger.warning(
+            f"Missing 'Manage Messages' permission to delete message {msg_id}"
+        )
     except Exception as del_err:
         logger.error(f"Failed to delete message {msg_id}: {del_err}")
 
