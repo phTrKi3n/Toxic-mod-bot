@@ -109,7 +109,10 @@ def sync_discord_context(message, db: Session) -> tuple[Server | None, User | No
         else:
             if getattr(author, "name", None):
                 usr.username = author.name
-            if guild is not None:
+            if (
+                guild is not None
+                and os.getenv("RBAC_AUTO_SYNC_ROLES", "false").lower() == "true"
+            ):
                 usr.role = inferred_role
             db.flush()
 
@@ -332,8 +335,7 @@ def _open_db_session() -> Session | None:
     url = os.getenv("DATABASE_URL")
     try:
         if url:
-            engine = create_engine(url, pool_pre_ping=True)
-            return Session(engine)
+            return Session(rbac._engine(url))
         from db.session import SessionLocal
 
         return SessionLocal()

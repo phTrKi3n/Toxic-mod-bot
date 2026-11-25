@@ -14,11 +14,16 @@ WINDOW_SECONDS = 300  # 5 minutes
 
 class ErrorTracker:
     def __init__(
-        self, threshold: int = ALERT_THRESHOLD, window_seconds: int = WINDOW_SECONDS
+        self,
+        threshold: int = ALERT_THRESHOLD,
+        window_seconds: int = WINDOW_SECONDS,
+        alert_cooldown_seconds: int = 60,
     ):
         self.threshold = threshold
         self.window_seconds = window_seconds
+        self.alert_cooldown_seconds = alert_cooldown_seconds
         self.error_timestamps = deque()
+        self.last_alert_time = 0.0
 
     def record_error(self, error_detail: str):
         now = time.time()
@@ -29,8 +34,12 @@ class ErrorTracker:
             f"[MONITOR] Recorded error. Total in 5m window: {len(self.error_timestamps)}/{self.threshold}"
         )
 
-        if len(self.error_timestamps) >= self.threshold:
-            self._trigger_alert(error_detail, len(self.error_timestamps))
+        if (
+            len(self.error_timestamps) >= self.threshold
+            and (now - self.last_alert_time) >= self.alert_cooldown_seconds
+        ):
+            self.last_alert_time = now
+            self._trigger_alert(error_detail[:500], len(self.error_timestamps))
 
     def _clean_old_errors(self, now: float):
         cutoff = now - self.window_seconds

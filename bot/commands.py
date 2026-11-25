@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import aiohttp
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 if TYPE_CHECKING:
@@ -102,7 +102,7 @@ async def _handle_appeal(message: discord.Message) -> None:
         return
 
     try:
-        engine = create_engine(database_url)
+        engine = rbac._engine(database_url)
         with Session(engine) as session:
             _, user = sync_discord_context(message, session)
             target_msg = rbac.owned_appeal_target(
@@ -134,11 +134,17 @@ async def _handle_appeal(message: discord.Message) -> None:
             await message.channel.send(
                 f"Đã gửi khiếu nại cho tin nhắn #{target_message_id} thành công."
             )
-    except Exception as e:
-        await message.channel.send(f"Lỗi khi gửi khiếu nại: {e}")
+    except Exception:
+        logger.error("Command /appeal failed", exc_info=True)
+        await message.channel.send(
+            "Đã xảy ra lỗi hệ thống khi xử lý lệnh. Vui lòng thử lại sau."
+        )
 
 
 async def _send_private_or_channel(message: discord.Message, content: str) -> None:
+    if isinstance(message, _InteractionMessageAdapter):
+        await message.channel.send(content)
+        return
     author_send = getattr(getattr(message, "author", None), "send", None)
     if callable(author_send):
         try:
@@ -148,8 +154,12 @@ async def _send_private_or_channel(message: discord.Message, content: str) -> No
             )
             return
         except Exception:
-            pass
-    await message.channel.send(content)
+            logger.warning(
+                "Failed to DM queue list to moderator; withholding from public channel"
+            )
+    await message.channel.send(
+        "Không thể gửi danh sách hàng đợi vì bạn đang tắt tin nhắn riêng (DM). Vui lòng bật DM hoặc dùng Slash Command /queue."
+    )
 
 
 async def _handle_queue(message: discord.Message) -> None:
@@ -163,7 +173,7 @@ async def _handle_queue(message: discord.Message) -> None:
         return
 
     try:
-        engine = create_engine(database_url)
+        engine = rbac._engine(database_url)
         with Session(engine) as session:
             stmt = (
                 select(HardCase)
@@ -188,8 +198,11 @@ async def _handle_queue(message: discord.Message) -> None:
                     f"- ID: {hc.hardcase_id} | Message ID: {hc.message_id} | Score: {hc.original_score:.2f}"
                 )
             await _send_private_or_channel(message, "\n".join(lines))
-    except Exception as e:
-        await message.channel.send(f"Lỗi khi lấy hàng đợi: {e}")
+    except Exception:
+        logger.error("Command /queue failed", exc_info=True)
+        await message.channel.send(
+            "Đã xảy ra lỗi hệ thống khi xử lý lệnh. Vui lòng thử lại sau."
+        )
 
 
 async def _handle_resolve(message: discord.Message) -> None:
@@ -223,7 +236,7 @@ async def _handle_resolve(message: discord.Message) -> None:
         return
 
     try:
-        engine = create_engine(database_url)
+        engine = rbac._engine(database_url)
         with Session(engine) as session:
             _, user = sync_discord_context(message, session)
             user_id = user.user_id if user else None
@@ -303,8 +316,11 @@ async def _handle_resolve(message: discord.Message) -> None:
                 await message.channel.send(
                     f"Đã ghi nhận ModerationAction '{action}' cho tin nhắn #{target_message_id}."
                 )
-    except Exception as e:
-        await message.channel.send(f"Lỗi khi xử lý resolve: {e}")
+    except Exception:
+        logger.error("Command /resolve failed", exc_info=True)
+        await message.channel.send(
+            "Đã xảy ra lỗi hệ thống khi xử lý lệnh. Vui lòng thử lại sau."
+        )
 
 
 async def _handle_label(message: discord.Message) -> None:
@@ -334,7 +350,7 @@ async def _handle_label(message: discord.Message) -> None:
         return
 
     try:
-        engine = create_engine(database_url)
+        engine = rbac._engine(database_url)
         with Session(engine) as session:
             _, user = sync_discord_context(message, session)
             hc = rbac.scoped_hardcase(session, message.guild.id, hardcase_id)
@@ -349,8 +365,11 @@ async def _handle_label(message: discord.Message) -> None:
             await message.channel.send(
                 f"Đã gắn nhãn '{label_val}' cho HardCase #{hardcase_id}."
             )
-    except Exception as e:
-        await message.channel.send(f"Lỗi khi gắn nhãn: {e}")
+    except Exception:
+        logger.error("Command /label failed", exc_info=True)
+        await message.channel.send(
+            "Đã xảy ra lỗi hệ thống khi xử lý lệnh. Vui lòng thử lại sau."
+        )
 
 
 async def _handle_config(message: discord.Message) -> None:
@@ -392,7 +411,7 @@ async def _handle_config(message: discord.Message) -> None:
         return
 
     try:
-        engine = create_engine(database_url)
+        engine = rbac._engine(database_url)
         with Session(engine) as session:
             srv, _ = sync_discord_context(message, session)
             if srv is None:
@@ -417,8 +436,11 @@ async def _handle_config(message: discord.Message) -> None:
             await message.channel.send(
                 f"Đã cập nhật {param_name} = {param_value:.2f} cho server."
             )
-    except Exception as e:
-        await message.channel.send(f"Lỗi khi cập nhật cấu hình: {e}")
+    except Exception:
+        logger.error("Command /config failed", exc_info=True)
+        await message.channel.send(
+            "Đã xảy ra lỗi hệ thống khi xử lý lệnh. Vui lòng thử lại sau."
+        )
 
 
 class _InteractionChannelAdapter:

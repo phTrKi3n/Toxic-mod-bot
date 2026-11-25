@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main, test, ops, dev, sec ]
 
+permissions:
+  contents: read
+
 jobs:
   quality-and-security:
     name: Quality, Security Audit & Automated Tests
@@ -16,10 +19,10 @@ jobs:
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python 3.11 Environment
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
@@ -32,15 +35,13 @@ jobs:
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
       - name: Code Formatting Check (black & isort)
-        continue-on-error: true
         run: |
           black --check .
           isort --check .
 
       - name: Dependency Vulnerability & Security Audit (pip-audit)
-        continue-on-error: true
         run: |
-          pip-audit --desc || true
+          pip-audit -r requirements.txt --desc
 
       - name: Execute Automated Unit & Integration Tests (pytest)
         run: |

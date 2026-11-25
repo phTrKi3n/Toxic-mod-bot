@@ -4,10 +4,10 @@ services:
     container_name: modbot_db
     environment:
       POSTGRES_USER: modbot_user
-      POSTGRES_PASSWORD: modbot_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-modbot_password}
       POSTGRES_DB: modbot_db
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -24,10 +24,11 @@ services:
       dockerfile: inference_service/Dockerfile
     container_name: modbot_inference
     environment:
-      DATABASE_URL: postgresql+psycopg2://modbot_user:modbot_password@db:5432/modbot_db
+      DATABASE_URL: postgresql+psycopg2://modbot_user:${POSTGRES_PASSWORD:-modbot_password}@db:5432/modbot_db
       MOCK_MODEL: ${MOCK_MODEL:-false}
+      OPS_API_KEY: ${OPS_API_KEY:-}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - hf_cache:/app/.cache/huggingface
     depends_on:
@@ -48,7 +49,7 @@ services:
       dockerfile: bot/Dockerfile
     container_name: modbot_bot
     environment:
-      DATABASE_URL: postgresql+psycopg2://modbot_user:modbot_password@db:5432/modbot_db
+      DATABASE_URL: postgresql+psycopg2://modbot_user:${POSTGRES_PASSWORD:-modbot_password}@db:5432/modbot_db
       INFERENCE_SERVICE_URL: http://inference_service:8000/classify
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-${DISCORD_TOKEN:-mock_token}}
       DISCORD_TOKEN: ${DISCORD_TOKEN:-${DISCORD_BOT_TOKEN:-mock_token}}

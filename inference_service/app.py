@@ -1,8 +1,10 @@
+import hmac
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -53,7 +55,12 @@ app = FastAPI(
 
 
 class ClassifyRequest(BaseModel):
-    text: str = Field(..., description="Nội dung tin nhắn/bình luận cần phân loại")
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=4000,
+        description="Nội dung tin nhắn/bình luận cần phân loại",
+    )
 
 
 class ClassifyResponse(BaseModel):
@@ -85,7 +92,7 @@ def classify_text(req: ClassifyRequest):
         logger.error(f"Inference error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Lỗi phân loại tin nhắn: {str(e)}",
+            detail="Lỗi hệ thống khi phân loại tin nhắn",
         )
 
 
@@ -101,7 +108,18 @@ def health_check():
 
 
 @app.post("/ops/reload")
-def trigger_reload(db: Session = Depends(get_db)):
+def trigger_reload(
+    db: Session = Depends(get_db),
+    x_ops_api_key: str | None = Header(default=None, alias="X-Ops-Api-Key"),
+):
+    expected_key = os.getenv("OPS_API_KEY", "")
+    if expected_key and (
+        not x_ops_api_key or not hmac.compare_digest(x_ops_api_key, expected_key)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
     m_id, v_tag = reload_model(db)
     return {
         "status": "success",

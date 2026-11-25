@@ -267,6 +267,10 @@ toxic-mod-bot/
 
 ---
 
-## License
+## Security, Privacy & Licenses
 
-Released under the [MIT License](LICENSE).
+- **Security Policy**: [SECURITY.md](SECURITY.md) — RBAC fail-closed design, API key hardening, and private vulnerability reporting.
+- **Privacy Policy**: [PRIVACY.md](PRIVACY.md) — Discord Developer Policy & Message Content Intent data handling disclosure.
+- **Terms of Service**: [TERMS.md](TERMS.md) — Terms for Discord server administrators and end users.
+- **Third-Party Licenses**: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) — Open-source dependencies & Hugging Face XLM-RoBERTa attributions.
+- **Application License**: Released under the [MIT License](LICENSE).

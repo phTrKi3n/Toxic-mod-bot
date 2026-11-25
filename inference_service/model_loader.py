@@ -55,7 +55,7 @@ def preprocess_text(text: str) -> str:
     """UC13: Normalize Unicode, strip evasion separators between letters, expand common teencode."""
     if not text:
         return ""
-    cleaned = unicodedata.normalize("NFC", text)
+    cleaned = unicodedata.normalize("NFC", text[:4000])
     # Remove zero-width characters
     cleaned = re.sub(r"[\u200b-\u200f\ufeff]", "", cleaned)
     # Collapse obfuscated dots/dashes/underscores placed between word characters (e.g., Đ.ồ n.g.u -> Đồ ngu)
