@@ -262,9 +262,10 @@ async def _handle_resolve(message: discord.Message) -> None:
                     f"Đã cập nhật Appeal cho tin nhắn #{target_message_id} thành {new_status}."
                 )
             else:
+                db_action_type = "flag" if action == "keep" else action
                 mod_action = ModerationAction(
                     message_id=target_message_id,
-                    action_type=action,
+                    action_type=db_action_type,
                     decided_by=user_id,
                     decided_at=datetime.utcnow(),
                 )

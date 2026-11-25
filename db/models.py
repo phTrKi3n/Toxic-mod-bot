@@ -7,6 +7,7 @@ thống nhất chung (rule.md mục 7) và ghi log trước khi sửa file này.
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -22,6 +23,9 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
     pass
+
+
+DiscordId = BigInteger().with_variant(Integer, "sqlite")
 
 
 class User(Base):
@@ -53,7 +57,7 @@ class Server(Base):
 class Message(Base):
     __tablename__ = "message"
 
-    message_id: Mapped[int] = mapped_column(primary_key=True)
+    message_id: Mapped[int] = mapped_column(DiscordId, primary_key=True)
     server_id: Mapped[int] = mapped_column(
         ForeignKey("server.server_id"), nullable=False
     )
@@ -82,7 +86,7 @@ class Classification(Base):
 
     classification_id: Mapped[int] = mapped_column(primary_key=True)
     message_id: Mapped[int] = mapped_column(
-        ForeignKey("message.message_id"), nullable=False
+        DiscordId, ForeignKey("message.message_id"), nullable=False
     )
     model_version_id: Mapped[int] = mapped_column(
         ForeignKey("model_version.model_version_id"), nullable=False
@@ -101,7 +105,7 @@ class ModerationAction(Base):
 
     action_id: Mapped[int] = mapped_column(primary_key=True)
     message_id: Mapped[int] = mapped_column(
-        ForeignKey("message.message_id"), nullable=False
+        DiscordId, ForeignKey("message.message_id"), nullable=False
     )
     action_type: Mapped[str] = mapped_column(String(20), nullable=False)
     # decided_by = NULL nghĩa là bot tự quyết định (không có mod can thiệp)
@@ -122,7 +126,7 @@ class Appeal(Base):
 
     appeal_id: Mapped[int] = mapped_column(primary_key=True)
     message_id: Mapped[int] = mapped_column(
-        ForeignKey("message.message_id"), nullable=False
+        DiscordId, ForeignKey("message.message_id"), nullable=False
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("app_user.user_id"), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
@@ -148,7 +152,7 @@ class HardCase(Base):
 
     hardcase_id: Mapped[int] = mapped_column(primary_key=True)
     message_id: Mapped[int] = mapped_column(
-        ForeignKey("message.message_id"), nullable=False
+        DiscordId, ForeignKey("message.message_id"), nullable=False
     )
     original_score: Mapped[float] = mapped_column(Float, nullable=False)
     corrected_label: Mapped[str | None] = mapped_column(String(20), nullable=True)

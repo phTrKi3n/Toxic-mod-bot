@@ -3,7 +3,8 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    APP_HOME=/app
+    APP_HOME=/app \
+    HF_HOME=/app/.cache/huggingface
 
 WORKDIR ${APP_HOME}
 
@@ -25,12 +26,12 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 COPY db ${APP_HOME}/db
 COPY inference_service ${APP_HOME}/inference_service
 
-# Grant ownership to non-root appuser
-RUN chown -R appuser:appgroup ${APP_HOME}
+# Create HF cache directory and grant ownership to non-root appuser
+RUN mkdir -p ${APP_HOME}/.cache/huggingface && chown -R appuser:appgroup ${APP_HOME}
 
 # Switch to non-root security context
 USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "inference_service.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["uvicorn", "inference_service.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

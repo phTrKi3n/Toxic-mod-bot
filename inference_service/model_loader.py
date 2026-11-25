@@ -204,7 +204,7 @@ class ModelManager:
 
         normalized = preprocess_text(text)
 
-        if self.use_mock or self.pipeline == "mock_xlm_roberta_pipeline":
+        if self.use_mock or self.pipeline in (None, "mock_xlm_roberta_pipeline"):
             text_lower = normalized.lower()
             toxic_keywords = [
                 "toxic",

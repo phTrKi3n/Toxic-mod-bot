@@ -26,10 +26,12 @@ services:
       dockerfile: inference_service/Dockerfile
     container_name: modbot_inference
     environment:
-      DATABASE_URL: postgresql://modbot_user:modbot_password@db:5432/modbot_db
-      MOCK_MODEL: "true"
+      DATABASE_URL: postgresql+psycopg2://modbot_user:modbot_password@db:5432/modbot_db
+      MOCK_MODEL: ${MOCK_MODEL:-false}
     ports:
       - "8000:8000"
+    volumes:
+      - hf_cache:/app/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy
@@ -39,8 +41,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 10s
+      retries: 6
+      start_period: 120s
 
   bot:
     build:
@@ -48,7 +50,7 @@ services:
       dockerfile: bot/Dockerfile
     container_name: modbot_bot
     environment:
-      DATABASE_URL: postgresql://modbot_user:modbot_password@db:5432/modbot_db
+      DATABASE_URL: postgresql+psycopg2://modbot_user:modbot_password@db:5432/modbot_db
       INFERENCE_SERVICE_URL: http://inference_service:8000/classify
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-${DISCORD_TOKEN:-mock_token}}
       DISCORD_TOKEN: ${DISCORD_TOKEN:-${DISCORD_BOT_TOKEN:-mock_token}}
@@ -66,3 +68,4 @@ networks:
 
 volumes:
   postgres_data:
+  hf_cache:
